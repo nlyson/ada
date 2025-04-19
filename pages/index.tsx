@@ -33,12 +33,6 @@ export default function App() {
 
   return (
     <main>
-      <FileUploader
-        acceptedFileTypes={["image/*"]}
-        path="public/"
-        maxFileCount={1}
-        isResumable
-      />
       <h1>{user?.signInDetails?.loginId}'s todos</h1>      
       <button onClick={createTodo}>+ new</button>
       <ul>
