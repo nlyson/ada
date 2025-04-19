@@ -34,7 +34,7 @@ export default function App() {
   return (
     <main>
       <FileUploader
-        acceptedFileTypes={['image/*']}
+        acceptedFileTypes={["image/*"]}
         path="public/"
         maxFileCount={1}
         isResumable
