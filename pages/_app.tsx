@@ -9,13 +9,9 @@ Amplify.configure(outputs);
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <Authenticator>
+    <Authenticator hideSignUp>
       {({ signOut, user }) => (
-        <main>
-          <h1>Hello {user?.username}</h1>
-          <button onClick={signOut}>Sign out</button>
-          <Component {...pageProps} />
-        </main>
+        <Component {...pageProps} signOut={signOut} user={user} />
       )}
     </Authenticator>
   );

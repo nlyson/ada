@@ -1,6 +1,7 @@
 import React, { useState, ChangeEvent, FormEvent } from "react";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "@/amplify/data/resource";
+import ReactMarkdown from "react-markdown"
 
 const Spinner = () => (
   <div
@@ -34,7 +35,13 @@ type FeedbackResponse = {
   result: string;
 }
 
-export default function App() {
+export default function App({
+  signOut,
+  user,
+}: {
+  signOut: () => void;
+  user: { username: string };
+}) {
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -65,6 +72,7 @@ export default function App() {
       try {
         const response = await client.queries.imageLLMReview({ name: base64String });
         setFeedback(response.data || "Response came back empty ")
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (err) {
         console.error("Error calling imageLLMReview:", err);
         setFeedback("Error analyzing image.");
@@ -76,48 +84,134 @@ export default function App() {
   };
   
   return (
-    <div>
-      <h1>Photo Feedback</h1>
-      <form onSubmit={handleSubmit}>
-        <input type="file" accept="image/*" onChange={handleChange} />
-        <button type="submit" disabled={loading} style={{ marginLeft: 8 }}>
-          {loading ? (
-            <>
-              <Spinner /> Analyzing...
-            </>
-          ) : (
-            "Analyze Photo"
-          )}
+    <div
+      style={{  
+        maxWidth: 600,
+        margin: "0 auto",
+        padding: 24,
+        textAlign: "center",
+        minHeight: "100vh",
+      }}
+      >
+      <div style={{ position: "relative", padding: 16 }}>
+      <button
+        onClick={signOut}
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          padding: "6px 12px",
+          border: "none",
+          background: "#333",
+          color: "#fff",
+          borderRadius: 4,
+          cursor: "pointer",
+        }}
+      >
+        Sign Out
       </button>
-      </form>
-      {image && (
-        <img
-          src={URL.createObjectURL(image)}
-          alt="preview"
-          style={{
-            width: "100%",
-            marginTop: 16,
-            borderRadius: 8,
-            filter: loading ? "blur(2px) grayscale(0.6)" : "none",
-            transition: "filter 0.3s ease-in-out",
-          }}
-        />
-      )}
-      {feedback && (
-        <div
-          style={{
-            marginTop: 24,
-            whiteSpace: "pre-wrap",
-            background: "#fafafa",
-            padding: 16,
-            borderRadius: 8,
-          }}
+      <div
+        style={{  
+          maxWidth: 600,
+          margin: "0 auto",
+          padding: 24,
+          textAlign: "center",
+          minHeight: "100vh",
+        }}
         >
-          <b>Photographer Feedback:</b>
-          <br />
-          {JSON.stringify(feedback)}
+          <img
+            src="/raccoon-logo.png"
+            alt="Raccoon Logo"
+            style={{
+              width: 120,
+              height: 120,
+              objectFit: "cover",
+              borderRadius: "50%",
+              marginBottom: 8,
+            }}
+          />
+          <h1 style={{ fontSize: 28, margin: "16px 0 8px" }}>PEDRO</h1>
+          <p style={{ margin: 0, fontStyle: "italic", color: "#555" }}>
+            Photographic Evaluation & Detailed Raccoon Observation
+          </p>
+          <h1>Photo Feedback</h1>
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 24,
+            }}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleChange}
+              style={{
+                padding: 8,
+                borderRadius: 6,
+                border: "1px solid #ccc",
+                backgroundColor: "#fff",
+                cursor: "pointer",
+              }}
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                padding: "10px 16px",
+                backgroundColor: "#0070f3",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
+            >
+              {loading ? (
+                <>
+                  <Spinner /> Analyzing...
+                </>
+              ) : (
+                "Analyze Photo"
+              )}
+            </button>
+          </form>
+          {image && (
+            <img
+              src={URL.createObjectURL(image)}
+              alt="preview"
+              style={{
+                maxWidth: "100%",
+                maxHeight: 400,
+                marginTop: 16,
+                borderRadius: 8,
+                filter: loading ? "blur(2px) grayscale(0.6)" : "none",
+                transition: "filter 0.3s ease-in-out",
+                objectFit: "contain",
+                display: "block",
+                marginLeft: "auto",
+                marginRight: "auto",
+              }}
+            />
+          )}
+          {feedback && (
+            <div
+              style={{
+                marginTop: 24,
+                background: "#fafafa",
+                padding: 16,
+                borderRadius: 8,
+              }}
+            >
+              <h2 style={{ marginTop: 0 }}>Photographer Feedback</h2>
+              <ReactMarkdown>{feedback}</ReactMarkdown>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
