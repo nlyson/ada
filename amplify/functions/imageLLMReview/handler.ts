@@ -3,6 +3,9 @@ import { stringify } from "querystring";
 export const handler = async (event: any): Promise<string> => {
   const base64 = event.arguments.name;
 
+  console.log('----------------------------------------Entering function')
+  const my_var = `--------------------------This is it ${process.env.OPENAI_API_KEY}`
+  
   const messages = [
     {
       role: "system",
@@ -23,6 +26,7 @@ export const handler = async (event: any): Promise<string> => {
   ];
 
   try {
+    console.log('-----------------------------Sending response')
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -36,14 +40,16 @@ export const handler = async (event: any): Promise<string> => {
       }),
     });
 
+    console.log('-------------Waiting for response')
     const data = await response.json();
-    console.log('Raw Response - ', JSON.stringify(data))
+    //console.log('Raw Response - ', JSON.stringify(data))
 
     //return JSON.stringify({"Content-Type": "application/json", "data": `THIS IS THE KEYYYYYYYYYYYYYYY ${secret('OPENAI_API_KEY')}`,})
     //return JSON.stringify(data)
+    console.log('----------------About to return response')
     return data.choices[0].message.content || "Data content was empty. Prob a bug. ;)";
   } catch (error) {
     console.error("OpenAI error:", error);
-    return `Error analyzing image - error ${error}.`
+    return `Error analyzing image a key ${my_var}  --------- error ${error}.`
   }
 };
