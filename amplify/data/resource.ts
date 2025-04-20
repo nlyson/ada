@@ -1,5 +1,7 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { imageLLMReview } from '../functions/imageLLMReview/resource';
+import { sayHello } from "../functions/say-hello/resource"
+
 
 /*== STEP 1 ===============================================================
 The section below creates a Todo database table with a "content" field. Try
@@ -14,13 +16,23 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.owner()]),
   
-    imageLLMReview: a
+    
+  sayHello: a
     .query()
     .arguments({
       name: a.string(),
     })
     .returns(a.string())
     .authorization(allow => [allow.guest()])
+    .handler(a.handler.function(sayHello)),
+
+  imageLLMReview: a
+    .query()
+    .arguments({
+      name: a.string(),
+    })
+    .returns(a.string())
+    .authorization(allow => [allow.authenticated()])
     .handler(a.handler.function(imageLLMReview)),
 });
 
