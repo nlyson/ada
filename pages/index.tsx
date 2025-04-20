@@ -1,55 +1,98 @@
-import { useState, useEffect } from "react";
+import React, { useState, ChangeEvent, FormEvent } from "react";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "@/amplify/data/resource";
-import { useAuthenticator } from "@aws-amplify/ui-react";
-import { FileUploader } from '@aws-amplify/ui-react-storage';
+
 
 const client = generateClient<Schema>();
 
+type FeedbackResponse = {
+  result: string;
+}
+
+const API_URL = "---api url goes here---"
+
 export default function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
+  const [image, setImage] = useState<File | null>(null);
+  const [feedback, setFeedback] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const { user, signOut } = useAuthenticator();
-
-  function deleteTodo(id: string) {
-    client.models.Todo.delete({ id })
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
+    if (e.target.files && e.target.files.length > 0) {
+      setImage(e.target.files[0]);
+    } else {
+      setImage(null);
+    }
+    setFeedback("");
   }
 
-  function listTodos() {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
-    });
-  }
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!image) {
+      alert("Please select an image.");
+      return;
+    }
+    setLoading(true);
+    setFeedback("");
 
-  useEffect(() => {
-    listTodos();
-  }, []);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = (reader.result as string).split(",")[1];
 
-  function createTodo() {
-    client.models.Todo.create({
-      content: window.prompt("Todo content"),
-    });
-  }
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ base64: base64String }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Error from API");
+        }
+        const data: FeedbackResponse = await res.json();
+        setFeedback(data.result || "No feedback.");
+      } catch (err) {
+        setFeedback("Error analyzing image.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsDataURL(image);
+  };
 
   return (
-    <main>
-      <h1>{user?.signInDetails?.loginId} todos</h1>      
-      <button onClick={createTodo}>+ new</button>
-      <ul>
-        {todos.map(todo => <li
-          onClick={() => deleteTodo(todo.id)}
-          key={todo.id}>
-          {todo.content}
-        </li>)}
-      </ul> 
-      <div>
-        🥳 App successfully hosted. Try creating a new todo.
-        <br />
-        <a href="https://docs.amplify.aws/gen2/start/quickstart/nextjs-pages-router/">
-          Review next steps of this tutorial.
-        </a>
-      </div>
-      <button onClick={signOut}>Sign out</button>
-    </main>
+    <div style={{ padding: 40, maxWidth: 600, margin: "0 auto" }}>
+      <h1>Photo Feedback</h1>
+      <form onSubmit={handleSubmit}>
+        <input type="file" accept="image/*" onChange={handleChange} />
+        <button type="submit" disabled={loading} style={{ marginLeft: 8 }}>
+          {loading ? "Analyzing..." : "Analyze Photo"}
+        </button>
+      </form>
+      {image && (
+        <img
+          src={URL.createObjectURL(image)}
+          alt="preview"
+          style={{ width: "100%", marginTop: 16, borderRadius: 8 }}
+        />
+      )}
+      {feedback && (
+        <div
+          style={{
+            marginTop: 24,
+            whiteSpace: "pre-wrap",
+            background: "#fafafa",
+            padding: 16,
+            borderRadius: 8,
+          }}
+        >
+          <b>Photographer Feedback:</b>
+          <br />
+          {feedback}
+        </div>
+      )}
+    </div>
   );
-}
+};
+
