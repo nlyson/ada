@@ -3,7 +3,6 @@ import { stringify } from "querystring";
 export const handler = async (event: any): Promise<string> => {
   const base64 = event.arguments.name;
 
-  console.log("Base64 size:", base64.length);
   const messages = [
     {
       role: "system",
@@ -40,9 +39,9 @@ export const handler = async (event: any): Promise<string> => {
     const data = await response.json();
     console.log('Raw Response - ', JSON.stringify(data))
 
-    //return JSON.stringify({"Content-Type": "application/json", "Authorization": `THIS IS THE KEYYYYYYYYYYYYYYY ${process.env.OPENAI_API_KEY}`,})
+    //return JSON.stringify({"Content-Type": "application/json", "data": `THIS IS THE KEYYYYYYYYYYYYYYY ${secret('OPENAI_API_KEY')}`,})
     //return JSON.stringify(data)
-    return data.choices[0].message.content || "No feedback.";
+    return data.choices[0].message.content || "Data content was empty. Prob a bug. ;)";
   } catch (error) {
     console.error("OpenAI error:", error);
     return "Error analyzing image.";

@@ -64,8 +64,7 @@ export default function App() {
   
       try {
         const response = await client.queries.imageLLMReview({ name: base64String });
-        setFeedback(response.data || "Response came back empty :(")
-        //setFeedback(response.data || "No feedback.");
+        setFeedback(response.data || "Response came back empty ")
       } catch (err) {
         console.error("Error calling imageLLMReview:", err);
         setFeedback("Error analyzing image.");
