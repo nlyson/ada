@@ -44,6 +44,6 @@ export const handler = async (event: any): Promise<string> => {
     return data.choices[0].message.content || "Data content was empty. Prob a bug. ;)";
   } catch (error) {
     console.error("OpenAI error:", error);
-    return "Error analyzing image.";
+    return `Error analyzing image - error ${error}.`
   }
 };
