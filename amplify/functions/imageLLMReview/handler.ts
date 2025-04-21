@@ -28,9 +28,9 @@ export const handler = async (event: any): Promise<string> => {
         "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: "gpt-4.1",
         messages,
-        max_tokens: 16000,
+        max_tokens: 100000,
       }),
     });
 
