@@ -30,7 +30,7 @@ export const handler = async (event: any): Promise<string> => {
       body: JSON.stringify({
         model: "gpt-4.1-mini",
         messages,
-        max_tokens: 128000,
+        max_tokens: 16000,
       }),
     });
 
