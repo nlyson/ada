@@ -66,7 +66,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
       console.log('---------API RESPONSE---', response)
   
       const result = await response.json();
-      setFeedback(JSON.stringify(result) || "No feedback.");
+      setFeedback(result.result || "No feedback.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error("Error analyzing image:", err);
