@@ -2,6 +2,12 @@ import React, { useState, ChangeEvent, FormEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "@/amplify/data/resource";
+import { uploadData, getUrl } from 'aws-amplify/storage';
+
+import { Amplify } from 'aws-amplify';
+import amplifyConfig from '../amplify_outputs.json'; // ✅ path to your generated config
+
+Amplify.configure(amplifyConfig);
 
 type AppProps = {
   signOut: () => void;
@@ -30,23 +36,44 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
       alert("Please select an image.");
       return;
     }
-    setLoading(true);
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64String = (reader.result as string).split(",")[1];
   
-      try {
-        const response = await client.queries.imageLLMReview({ name: base64String });
-        setFeedback(response.data || "Response came back empty ")
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } catch (err) {
-        console.error("Error calling imageLLMReview:", err);
-        setFeedback("Error analyzing image.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    reader.readAsDataURL(image);
+    setLoading(true);
+    setFeedback("");
+  
+    try {
+      const fileName = `${Date.now()}_${image.name}`;
+      const path = `picture-submissions/${fileName}`;
+  
+      // ✅ Upload using the new `path` object
+      await uploadData({
+        path,
+        data: image,
+        options: {
+          contentType: image.type,
+        },
+      }).result;
+  
+      // ✅ Get URL using new `path` object
+      const { url: imageUrl } = await getUrl({ path });
+  
+      // ✅ Call your API with the image URL
+      const response = await fetch("https://bdh7b25k0j.execute-api.us-east-1.amazonaws.com/dev/imageLLMReview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      console.log('---------API RESPONSE---', response)
+  
+      const result = await response.json();
+      setFeedback(JSON.stringify(result) || "No feedback.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      console.error("Error analyzing image:", err);
+      setFeedback(`Error analyzing image ${err}.`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
