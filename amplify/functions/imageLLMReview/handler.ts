@@ -1,7 +1,22 @@
 import { APIGatewayProxyHandler } from "aws-lambda";
 import fetch from "node-fetch";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 export const handler: APIGatewayProxyHandler = async (event) => {
+  // Handle preflight OPTIONS request
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: "",
+    };
+  }
+
   try {
     const body = JSON.parse(event.body || "{}");
     const imageUrl = body.imageUrl;
@@ -9,6 +24,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!imageUrl) {
       return {
         statusCode: 400,
+        header: corsHeaders,
         body: JSON.stringify({ error: "Missing 'imageUrl' in request body." }),
       };
     }
@@ -24,6 +40,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           { type: "text", text: "Please review this photo." },
           {
             type: "image_url",
+            headers: corsHeaders,
             image_url: {
               url: imageUrl,
             },
@@ -51,6 +68,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       console.error("OpenAI Error:", data.error);
       return {
         statusCode: 500,
+        headers: corsHeaders,
         body: JSON.stringify({ error: data.error.message }),
       };
     }
@@ -63,6 +81,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     console.error("Lambda error:", err);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ error: "Internal Server Error" }),
     };
   }

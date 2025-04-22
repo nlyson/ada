@@ -57,7 +57,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
       const { url: imageUrl } = await getUrl({ path });
   
       // ✅ Call your API with the image URL
-      const response = await fetch("https://bdh7b25k0j.execute-api.us-east-1.amazonaws.com/dev/imageLLMReview", {
+      const response = await fetch("https://xzkgp2jpwjcpzkpyhyiu6cf3dq0pycou.lambda-url.us-east-1.on.aws//dev/imageLLMReview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl }),
