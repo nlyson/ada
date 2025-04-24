@@ -15,8 +15,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <ul style={{ listStyle: "none", padding: 0 }}>
               <li><Link href="/">Home</Link></li>
               <li><Link href="/photo_feedback">Photo Feedback</Link></li>
-              <li><Link href="/page2">Page 2</Link></li>
-              <li><Link href="/page3">Page 3</Link></li>
+              <li><Link href="/page2">Daily Photography Tip</Link></li>
+              <li><Link href="/page3">Page 3 - TODO</Link></li>
             </ul>
           </nav>
         )}
