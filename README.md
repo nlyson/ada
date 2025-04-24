@@ -1,4 +1,4 @@
-## AWS Amplify Next.js (Pages) Starter Template
+## Photo App Prototype
 
 This repository is the location for the Photo App prototype
 
