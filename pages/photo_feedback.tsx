@@ -79,14 +79,13 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
   return (
     <div
       style={{
-        maxWidth: 600,
-        margin: "0 auto",
-        padding: 24,
-        textAlign: "center",
-        minHeight: "100vh", // only one!
-        position: "relative"
+        backgroundColor: "#bfbfbf",
+        color: "white",
+        minHeight: "100vh",
+        position: "relative",
       }}
     >
+      {/* Sign Out button at top-right of full page */}
       <button
         onClick={signOut}
         style={{
@@ -99,97 +98,109 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
           color: "#fff",
           borderRadius: 4,
           cursor: "pointer",
-          zIndex: 1
+          zIndex: 1,
         }}
       >
         Sign Out
       </button>
-      <img
-        src="/raccoon-logo.png"
-        alt="Raccoon Logo"
+  
+      {/* Centered main content */}
+      <div
         style={{
-          width: 120,
-          height: 120,
-          objectFit: "cover",
-          borderRadius: "50%",
-          marginBottom: 8
-        }}
-      />
-      <h1 style={{ fontSize: 28, margin: "16px 0 8px" }}>PEDRO</h1>
-      <p style={{ margin: 0, fontStyle: "italic", color: "#555" }}>
-        Photographic Evaluation & Detailed Raccoon Observation
-      </p>
-      <h2>Photo Feedback</h2>
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 12,
-          marginTop: 24
+          maxWidth: 600,
+          margin: "0 auto",
+          padding: 24,
+          textAlign: "center",
         }}
       >
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleChange}
-          style={{
-            padding: 8,
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            backgroundColor: "#fff",
-            cursor: "pointer"
-          }}
-        />
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "10px 16px",
-            backgroundColor: "#0070f3",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer"
-          }}
-        >
-          {loading ? "Analyzing..." : "Analyze Photo"}
-        </button>
-      </form>
-      {image && (
         <img
-          src={URL.createObjectURL(image)}
-          alt="preview"
+          src="/raccoon-logo.png"
+          alt="Raccoon Logo"
           style={{
-            maxWidth: "100%",
-            maxHeight: 400,
-            marginTop: 16,
-            borderRadius: 8,
-            filter: loading ? "blur(2px) grayscale(0.6)" : "none",
-            transition: "filter 0.3s ease-in-out",
-            objectFit: "contain",
-            display: "block",
-            marginLeft: "auto",
-            marginRight: "auto"
+            width: 120,
+            height: 120,
+            objectFit: "cover",
+            borderRadius: "50%",
+            marginBottom: 8,
           }}
         />
-      )}
-      {feedback && (
-        <div
+        <h2>Photo Feedback</h2>
+  
+        <form
+          onSubmit={handleSubmit}
           style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 12,
             marginTop: 24,
-            background: "#fafafa",
-            padding: 16,
-            borderRadius: 8,
-            textAlign: "left"
           }}
         >
-          <h2 style={{ marginTop: 0 }}>Photographer Feedback</h2>
-          <ReactMarkdown>{feedback}</ReactMarkdown>
-        </div>
-      )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleChange}
+            style={{
+              padding: 8,
+              borderRadius: 6,
+              border: "1px solid #ccc",
+              backgroundColor: "#fff",
+              color: "#000",
+              cursor: "pointer",
+            }}
+          />
+  
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: "10px 16px",
+              backgroundColor: "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Analyzing..." : "Analyze Photo"}
+          </button>
+        </form>
+  
+        {image && (
+          <img
+            src={URL.createObjectURL(image)}
+            alt="preview"
+            style={{
+              maxWidth: "100%",
+              maxHeight: 400,
+              marginTop: 16,
+              borderRadius: 8,
+              filter: loading ? "blur(2px) grayscale(0.6)" : "none",
+              transition: "filter 0.3s ease-in-out",
+              objectFit: "contain",
+              display: "block",
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          />
+        )}
+  
+        {feedback && (
+          <div
+            style={{
+              marginTop: 24,
+              background: "#fff",
+              color: "#000",
+              padding: 16,
+              borderRadius: 8,
+              textAlign: "left",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Photographer Feedback</h2>
+            <ReactMarkdown>{feedback}</ReactMarkdown>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

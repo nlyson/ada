@@ -11,5 +11,8 @@ export const storage = defineStorage({
       allow.authenticated.to(['read','write']),
       allow.guest.to(['read', 'write'])
     ],
+    'user-creations/{identity_id}/*': [
+      allow.entity('identity').to(['read', 'write', 'delete']) // ✅ Add list here!
+    ],
   })
 });
