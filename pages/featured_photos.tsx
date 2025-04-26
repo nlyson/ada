@@ -13,7 +13,7 @@ const FeaturedPhotos: React.FC = () => {
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
-        const response = await fetch("/api/featured_photos");
+        const response = await fetch("https://e6kljoi33rwhfdxscftnmpns2q0fxfrp.lambda-url.us-east-1.on.aws/featured_photos");
         const result = await response.json();
 
         if (response.ok && result.featuredPhotos) {

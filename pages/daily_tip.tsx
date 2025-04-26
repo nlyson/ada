@@ -22,8 +22,8 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
     const fetchData = async () => {
       try {
         const [todayRes, historyRes] = await Promise.all([
-          fetch("https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/daily_tip"),
-          fetch("/api/tips"),
+          fetch("https://fixpg2k7q32zd7y2nw7ddmfuha0yzimy.lambda-url.us-east-1.on.aws/fetch_daily_tip"),
+          fetch("https://x4pvvkw7np52wvlizo2njelwgq0kndxn.lambda-url.us-east-1.on.aws/fetch_tip_history"),
         ]);
 
         const todayResult = await todayRes.json();
