@@ -1,50 +1,55 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
-const DAILY_TIP_LAMBDA_URL = "https://mxxgmre43oe44ufw2n7ub7dxnm0tskjq.lambda-url.us-east-1.on.aws/chat_with_gpt";
+type Tip = {
+  id: string;
+  tip: string;
+  timestamp: string;
+};
 
 type DailyTipProps = {
   signOut: () => void;
   user: { username: string };
 };
 
-
-const DailyTip: React.FC<DailyTipProps> = ({ signOut, user }) => {
-  const [tip, setTip] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
+const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
+  const [todayTip, setTodayTip] = useState<string>("");
+  const [tipHistory, setTipHistory] = useState<Tip[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
-  const generateTip = async () => {
-    setLoading(true);
-    setError("");
-    setTip("");
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [todayRes, historyRes] = await Promise.all([
+          fetch("https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/daily_tip"),
+          fetch("/api/tips"),
+        ]);
 
-    try {
-      const response = await fetch(DAILY_TIP_LAMBDA_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userMessage: "Give me a daily photography tip.",
-          systemMessage: "You are a professional photography coach. Provide one practical and actionable tip per day for photographers of all levels.",
-        }),
-      });
+        const todayResult = await todayRes.json();
+        const historyResult = await historyRes.json();
 
-      const result = await response.json();
+        if (todayRes.ok && todayResult.tip) {
+          setTodayTip(todayResult.tip);
+        } else {
+          throw new Error(todayResult.error || "Unknown error loading today's tip");
+        }
 
-      if (response.ok && result.result) {
-        setTip(result.result);
-      } else {
-        throw new Error(result.error || "Unknown error");
+        if (historyRes.ok && historyResult.tips) {
+          setTipHistory(historyResult.tips);
+        } else {
+          throw new Error(historyResult.error || "Unknown error loading tip history");
+        }
+      } catch (err: any) {
+        console.error("Error fetching data:", err);
+        setError("Failed to fetch tips. Try again later.");
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error("Error fetching tip:", err);
-      setError("Failed to generate tip. Try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <div
@@ -52,34 +57,18 @@ const DailyTip: React.FC<DailyTipProps> = ({ signOut, user }) => {
         backgroundColor: "#bfbfbf",
         color: "white",
         minHeight: "100vh",
-        position: "relative"
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        paddingTop: "4rem",
+        paddingLeft: "1rem",
+        paddingRight: "1rem",
       }}
     >
-      {/* Sign Out relative to full screen */}
-      <button
-        onClick={signOut}
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          padding: "6px 12px",
-          border: "none",
-          background: "#333",
-          color: "#fff",
-          borderRadius: 4,
-          cursor: "pointer",
-          zIndex: 1
-        }}
-      >
-        Sign Out
-      </button>
-  
-      {/* Centered content container */}
       <div
         style={{
-          maxWidth: 600,
-          margin: "0 auto",
-          padding: 24,
+          maxWidth: "600px",
+          width: "100%",
           textAlign: "center",
         }}
       >
@@ -87,50 +76,75 @@ const DailyTip: React.FC<DailyTipProps> = ({ signOut, user }) => {
           src="/raccoon-logo.png"
           alt="Raccoon Logo"
           style={{
-            width: 120,
-            height: 120,
+            width: 100,
+            height: 100,
             objectFit: "cover",
             borderRadius: "50%",
-            marginBottom: 8,
+            marginBottom: 16,
+            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
           }}
         />
-        <h1 style={{ fontSize: 28, margin: "16px 0 8px" }}>Daily Photo Tip</h1>
-        <button
-          onClick={generateTip}
-          disabled={loading}
-          style={{
-            padding: "10px 16px",
-            backgroundColor: "#0070f3",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-            marginBottom: 16,
-          }}
-        >
-          {loading ? "Generating..." : "Generate Daily Tip"}
-        </button>
-  
-        {error && <p style={{ color: "red" }}>{error}</p>}
-  
-        {tip && (
+        <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Daily Photo Tip</h1>
+
+        {loading && (
+          <p style={{ marginBottom: "1rem" }}>Loading tips...</p>
+        )}
+
+        {error && (
+          <p style={{ color: "red", marginBottom: "1rem" }}>
+            {error}
+          </p>
+        )}
+
+        {!loading && !error && todayTip && (
           <div
             style={{
               marginTop: 16,
               background: "#fff",
               color: "#000",
-              padding: 16,
-              borderRadius: 8,
+              padding: 20,
+              borderRadius: 10,
               textAlign: "left",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              fontSize: "1rem",
+              lineHeight: 1.5,
+              marginBottom: "2rem",
             }}
           >
-            <ReactMarkdown>{tip}</ReactMarkdown>
+            <ReactMarkdown>{todayTip}</ReactMarkdown>
+          </div>
+        )}
+
+        {/* Tip History Section */}
+        {!loading && !error && tipHistory.length > 0 && (
+          <div style={{ textAlign: "left" }}>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem", textAlign: "center" }}>Recent Tips</h2>
+
+            {tipHistory.map((tip) => (
+              <div
+                key={tip.id}
+                style={{
+                  marginBottom: "1.5rem",
+                  background: "#fff",
+                  color: "#000",
+                  padding: 16,
+                  borderRadius: 8,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                }}
+              >
+                <div style={{ fontSize: "0.8rem", color: "#555", marginBottom: "0.5rem" }}>
+                  {tip.id}
+                </div>
+                <div style={{ fontSize: "1rem", lineHeight: 1.5 }}>
+                  <ReactMarkdown>{tip.tip}</ReactMarkdown>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
     </div>
   );
-  
 };
 
 export default DailyTip;

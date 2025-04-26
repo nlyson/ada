@@ -12,7 +12,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <Authenticator hideSignUp>
       {({ signOut, user }) => (
-        <Layout>
+        <Layout signOut={signOut}> {/* ✅ pass signOut here */}
           <Component {...pageProps} signOut={signOut} user={user} />
         </Layout>
       )}

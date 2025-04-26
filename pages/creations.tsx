@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
-import { uploadData, list, getUrl } from 'aws-amplify/storage';
+import { uploadData, list, getUrl, remove } from 'aws-amplify/storage';
 import { Amplify } from 'aws-amplify';
-import amplifyConfig from '../amplify_outputs.json'; // ✅ correct path
+import amplifyConfig from '../amplify_outputs.json';
 
 Amplify.configure(amplifyConfig);
 
@@ -15,8 +15,8 @@ const MAX_UPLOADS = 10;
 const Creations: React.FC<AppProps> = ({ signOut, user }) => {
   const [image, setImage] = useState<File | null>(null);
   const [uploads, setUploads] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
   const [uploadUrls, setUploadUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const userFolder = `user-creations/${user.username}/`;
 
@@ -24,16 +24,28 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
     fetchUploads();
   }, []);
 
+  async function handleDelete(path: string) {
+    const confirmDelete = window.confirm("Are you sure you want to delete this photo?");
+    if (!confirmDelete) return;
+  
+    try {
+      await remove({ path });
+      await fetchUploads();
+    } catch (err) {
+      console.error("Error deleting file:", err);
+    }
+  }
+
   async function fetchUploads() {
     try {
       const { items } = await list({ path: userFolder });
-      const paths = items.map((file: { path: string }) => file.path);
+      const paths = items.map((item: { path: string }) => item.path);
       setUploads(paths);
-  
+
       const urls = await Promise.all(
         paths.map(async (path: string) => {
           const { url } = await getUrl({ path });
-          return url.href; // ✅ Grab .href so it's a string
+          return url.href;
         })
       );
       setUploadUrls(urls);
@@ -84,23 +96,6 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
 
   return (
     <div style={{ padding: 24, backgroundColor: "#f0f0f0", minHeight: "100vh" }}>
-      <button
-        onClick={signOut}
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          padding: "6px 12px",
-          border: "none",
-          background: "#333",
-          color: "#fff",
-          borderRadius: 4,
-          cursor: "pointer",
-        }}
-      >
-        Sign Out
-      </button>
-
       <h1>Upload Your Creations</h1>
 
       <p>You have uploaded {uploads.length} of {MAX_UPLOADS} allowed photos.</p>
@@ -131,24 +126,46 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
       <div style={{ marginTop: 32 }}>
         <h2>Your Uploaded Photos:</h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-        {uploadUrls.map((url, idx) => (
-        <img
-            key={uploads[idx]}
-            src={url}
-            alt="Uploaded creation"
-            style={{ width: 150, height: 150, objectFit: "cover", borderRadius: 8 }}
-        />
-        ))}
+          {uploadUrls.map((url, idx) => (
+            <div key={uploads[idx]} style={{ position: "relative" }}>
+              <img
+                src={url}
+                alt="Uploaded creation"
+                style={{
+                  width: 150,
+                  height: 150,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  display: "block",
+                }}
+              />
+              <button
+                onClick={() => handleDelete(uploads[idx])}
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  background: "red",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 24,
+                  height: 24,
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                🗑️
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
-
-// Helper to get URL for each file
-async function awaitableUrl(path: string): Promise<string> {
-  const { url } = await getUrl({ path });
-  return url.href;
-}
 
 export default Creations;

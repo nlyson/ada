@@ -61,24 +61,6 @@ const PodcastPage: React.FC<PodcastPageProps> = ({ signOut, user }) => {
         position: "relative",
       }}
     >
-      <button
-        onClick={signOut}
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          padding: "6px 12px",
-          border: "none",
-          background: "#333",
-          color: "#fff",
-          borderRadius: 4,
-          cursor: "pointer",
-          zIndex: 1,
-        }}
-      >
-        Sign Out
-      </button>
-
       <div
         style={{
           maxWidth: 700,
@@ -87,7 +69,7 @@ const PodcastPage: React.FC<PodcastPageProps> = ({ signOut, user }) => {
           textAlign: "center",
         }}
       >
-        <h1 style={{ fontSize: 28, marginBottom: 24 }}>🎙️ Photography Podcasts</h1>
+        <h1 style={{ fontSize: 28, marginBottom: 24 }}>🎙️ Brand Building: Living The Whole Picture with Jama Pantel</h1>
 
         {error && <p style={{ color: "red" }}>{error}</p>}
 

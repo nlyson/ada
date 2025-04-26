@@ -1,8 +1,9 @@
 body {
   margin: 0;
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background-color: #f2f2f2; /* 🎨 Your chosen color */
-  color: white;              /* Optional: change if needed for contrast */
+  height: 100%;
+  width: 100%;
+  background-color: #bfbfbf; /* Optional: match your app background */
 }
 
 main {
