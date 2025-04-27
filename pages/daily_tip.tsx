@@ -11,6 +11,14 @@ type DailyTipProps = {
   user: { username: string };
 };
 
+function getTodayLocalDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
   const [todayTip, setTodayTip] = useState<string>("");
   const [tipHistory, setTipHistory] = useState<Tip[]>([]);
@@ -35,7 +43,9 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
         }
   
         if (historyRes.ok && historyResult.tips) {
-          setTipHistory(historyResult.tips);
+          const today = getTodayLocalDateString();
+          const filteredTips = historyResult.tips.filter((tip: Tip) => tip.date !== today);
+          setTipHistory(filteredTips);
         } else {
           throw new Error(historyResult.error || "Unknown error loading tip history");
         }
@@ -114,44 +124,26 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
           </div>
         )}
 
-        {tipHistory.map((tip) => {
-          const isToday = tip.date === new Date().toISOString().slice(0, 10);
-
-          return (
-            <div
-              key={tip.date}
-              style={{
-                marginBottom: "1.5rem",
-                background: "#fff",
-                color: "#000",
-                padding: 16,
-                borderRadius: 8,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-              }}
-            >
-              <div style={{ fontSize: "0.8rem", color: "#555", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                {new Date(tip.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                {isToday && (
-                  <span
-                    style={{
-                      backgroundColor: "#ff9800",
-                      color: "white",
-                      padding: "2px 8px",
-                      borderRadius: "12px",
-                      fontSize: "0.7rem",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    🆕 New!
-                  </span>
-                )}
-              </div>
-              <div style={{ fontSize: "1rem", lineHeight: 1.5 }}>
-                <ReactMarkdown>{tip.tip}</ReactMarkdown>
-              </div>
+        {tipHistory.map((tip) => (
+          <div
+            key={tip.date}
+            style={{
+              marginBottom: "1.5rem",
+              background: "#fff",
+              color: "#000",
+              padding: 16,
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div style={{ fontSize: "0.8rem", color: "#555", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {new Date(tip.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
-          );
-        })}
+            <div style={{ fontSize: "1rem", lineHeight: 1.5 }}>
+              <ReactMarkdown>{tip.tip}</ReactMarkdown>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
