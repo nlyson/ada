@@ -2,15 +2,22 @@ import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
 type Tip = {
-  id: string;
+  date: string;
   tip: string;
-  timestamp: string;
 };
 
 type DailyTipProps = {
   signOut: () => void;
   user: { username: string };
 };
+
+function getTodayLocalDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
   const [todayTip, setTodayTip] = useState<string>("");
@@ -25,18 +32,20 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
           fetch("https://fixpg2k7q32zd7y2nw7ddmfuha0yzimy.lambda-url.us-east-1.on.aws/fetch_daily_tip"),
           fetch("https://x4pvvkw7np52wvlizo2njelwgq0kndxn.lambda-url.us-east-1.on.aws/fetch_tip_history"),
         ]);
-
+  
         const todayResult = await todayRes.json();
         const historyResult = await historyRes.json();
-
+  
         if (todayRes.ok && todayResult.tip) {
           setTodayTip(todayResult.tip);
         } else {
-          throw new Error(todayResult.error || "Unknown error loading today's tip");
+          console.warn("No tip found for today. Continuing with history only.");
         }
-
+  
         if (historyRes.ok && historyResult.tips) {
-          setTipHistory(historyResult.tips);
+          const today = getTodayLocalDateString();
+          const filteredTips = historyResult.tips.filter((tip: Tip) => tip.date !== today);
+          setTipHistory(filteredTips);
         } else {
           throw new Error(historyResult.error || "Unknown error loading tip history");
         }
@@ -47,7 +56,7 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
         setLoading(false);
       }
     };
-
+  
     fetchData();
   }, []);
 
@@ -115,33 +124,26 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
           </div>
         )}
 
-        {/* Tip History Section */}
-        {!loading && !error && tipHistory.length > 0 && (
-          <div style={{ textAlign: "left" }}>
-            <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem", textAlign: "center" }}>Recent Tips</h2>
-
-            {tipHistory.map((tip) => (
-              <div
-                key={tip.id}
-                style={{
-                  marginBottom: "1.5rem",
-                  background: "#fff",
-                  color: "#000",
-                  padding: 16,
-                  borderRadius: 8,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                }}
-              >
-                <div style={{ fontSize: "0.8rem", color: "#555", marginBottom: "0.5rem" }}>
-                  {tip.id}
-                </div>
-                <div style={{ fontSize: "1rem", lineHeight: 1.5 }}>
-                  <ReactMarkdown>{tip.tip}</ReactMarkdown>
-                </div>
-              </div>
-            ))}
+        {tipHistory.map((tip) => (
+          <div
+            key={tip.date}
+            style={{
+              marginBottom: "1.5rem",
+              background: "#fff",
+              color: "#000",
+              padding: 16,
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div style={{ fontSize: "0.8rem", color: "#555", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {new Date(tip.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
+            <div style={{ fontSize: "1rem", lineHeight: 1.5 }}>
+              <ReactMarkdown>{tip.tip}</ReactMarkdown>
+            </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
