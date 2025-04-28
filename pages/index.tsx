@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { motion } from "framer-motion"; // ✨ Import Motion
+import { motion } from "framer-motion";
 
 export default function Home() {
   return (
@@ -7,6 +7,7 @@ export default function Home() {
       style={{
         background: "linear-gradient(to bottom, #bfbfbf, #d9d9d9)",
         minHeight: "100vh",
+        width: "100%",
         color: "#b76e79",
         display: "flex",
         flexDirection: "column",
@@ -16,37 +17,23 @@ export default function Home() {
         padding: "1.5rem",
       }}
     >
-      {/* Animated Heading */}
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        style={{
-          fontFamily: "'Segoe UI', 'Helvetica Neue', sans-serif",
-          fontSize: "2.2rem",
-          fontWeight: 600,
-          letterSpacing: "0.5px",
-          marginBottom: "1.2rem",
-        }}
-      >
-        Picture <span style={{ fontStyle: "italic", fontWeight: 400 }}>This</span>
-      </motion.h1>
-
-      {/* Animated Logo */}
+      {/* Animated Logo Only */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 1, ease: "easeOut" }}
         style={{
-          width: "80%",
-          maxWidth: "300px",
+          width: "100%",
+          maxWidth: "400px",
+          padding: "1rem",
         }}
       >
         <Image
-          src="/jama_logo.png"
+          src="/jama_home_screen.png"
           alt="Company Logo"
-          width={300}
-          height={300}
+          layout="responsive"
+          width={400}
+          height={400}
           style={{
             width: "100%",
             height: "auto",

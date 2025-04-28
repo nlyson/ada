@@ -3,52 +3,97 @@ import { useState } from "react";
 
 type LayoutProps = {
   children: React.ReactNode;
-  signOut?: () => void; // 🔥 allow passing signOut optionally
+  signOut?: () => void;
 };
 
 export default function Layout({ children, signOut }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Small helper to handle clicking a menu item
+  const handleMenuClick = () => {
+    setMenuOpen(false);
+  };
+
   return (
-    <div>
-      <header style={{ padding: "1rem", backgroundColor: "#333", color: "#fff" }}>
-        <button onClick={() => setMenuOpen(!menuOpen)} style={{ fontSize: "1.5rem" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#f9f9f9" }}>
+      <header style={{
+        padding: "1rem",
+        backgroundColor: "#333",
+        color: "#fff",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          style={{
+            fontSize: "2rem",
+            background: "none",
+            border: "none",
+            color: "white",
+            cursor: "pointer",
+            transition: "transform 0.3s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        >
           ☰
         </button>
-        {menuOpen && (
-          <nav style={{ marginTop: "1rem" }}>
-            <ul style={{ listStyle: "none", padding: 0 }}>
-              <li><Link href="/">Home</Link></li>
-              <li><Link href="/featured_photos">Featured Photos</Link></li>
-              <li><Link href="/photo_feedback">Photo Feedback</Link></li>
-              <li><Link href="/daily_tip">Daily Photography Tip</Link></li>
-              <li><Link href="/podcasts">Podcasts</Link></li>
-              <li><Link href="/creations">My Creations</Link></li>
-              {signOut && (
-                <>
-                  <li style={{ marginTop: "1rem" }}>
-                    <button
-                      onClick={signOut}
-                      style={{
-                        padding: "0.5rem 1rem",
-                        backgroundColor: "#e63946",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        width: "100%",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      Sign Out
-                    </button>
-                  </li>
-                </>
-              )}
-            </ul>
-          </nav>
-        )}
+        <h1 style={{ fontSize: "1.5rem" }}>📸 Picture This</h1>
       </header>
+
+      {/* Menu Panel */}
+      <div
+        style={{
+          maxHeight: menuOpen ? "500px" : "0",
+          overflow: "hidden",
+          transition: "max-height 0.5s ease",
+        }}
+      >
+        <nav style={{
+          backgroundColor: "white",
+          margin: "1rem",
+          borderRadius: "12px",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+          padding: menuOpen ? "1rem" : "0",
+        }}>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            <li><Link href="/" onClick={handleMenuClick}>🏠 Home</Link></li>
+            <li><Link href="/featured_photos" onClick={handleMenuClick}>🌟 Featured Photos</Link></li>
+            <li><Link href="/photo_feedback" onClick={handleMenuClick}>📝 Photo Feedback</Link></li>
+            <li><Link href="/daily_tip" onClick={handleMenuClick}>📸 Daily Tip</Link></li>
+            <li><Link href="/podcasts" onClick={handleMenuClick}>🎧 Podcasts</Link></li>
+            <li><Link href="/creations" onClick={handleMenuClick}>🎨 My Creations</Link></li>
+            <li><Link href="/learninghub" onClick={handleMenuClick}>📚 Learning Hub</Link></li>
+            {signOut && (
+              <li style={{ marginTop: "1rem" }}>
+                <button
+                  onClick={() => {
+                    handleMenuClick();
+                    signOut();
+                  }}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#e63946",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    width: "100%",
+                    fontSize: "1rem",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#d62839")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#e63946")}
+                >
+                  🚪 Sign Out
+                </button>
+              </li>
+            )}
+          </ul>
+        </nav>
+      </div>
+
       <main style={{ padding: "1rem" }}>{children}</main>
     </div>
   );
