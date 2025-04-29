@@ -1,9 +1,16 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
-import { uploadData, list, getUrl, remove } from 'aws-amplify/storage';
-import { Amplify } from 'aws-amplify';
-import amplifyConfig from '../amplify_outputs.json';
+import { Amplify } from "aws-amplify";
+import amplifyConfig from "../amplify_outputs.json";
 
 Amplify.configure(amplifyConfig);
+
+const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://vsoxyxz3rpahtiwjtqhloxv3gm0ddcsz.lambda-url.us-east-1.on.aws/update_user_creations";
+
+
+type UploadItem = {
+  key: string;
+  url: string;
+};
 
 type AppProps = {
   signOut: () => void;
@@ -13,44 +20,100 @@ type AppProps = {
 const MAX_UPLOADS = 10;
 
 const Creations: React.FC<AppProps> = ({ signOut, user }) => {
+  const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [image, setImage] = useState<File | null>(null);
-  const [uploads, setUploads] = useState<string[]>([]);
-  const [uploadUrls, setUploadUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const userFolder = `user-creations/${user.username}/`;
 
   useEffect(() => {
     fetchUploads();
   }, []);
 
-  async function handleDelete(path: string) {
-    const confirmDelete = window.confirm("Are you sure you want to delete this photo?");
-    if (!confirmDelete) return;
-  
+  async function fetchUploads() {
     try {
-      await remove({ path });
-      await fetchUploads();
-    } catch (err) {
-      console.error("Error deleting file:", err);
+      const res = await fetch(UPDATE_USER_CREATIONS_LAMBDA_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "list",
+          username: user.username,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.items) {
+        console.error("No items from server:", data);
+        return;
+      }
+
+      const mappedItems: UploadItem[] = data.items.map(
+        (item: { key: string; url: string }) => ({
+          key: item.key,
+          url: item.url,
+        })
+      );
+
+      setUploadItems(mappedItems);
+    } catch (error) {
+      console.error("Error fetching uploads:", error);
     }
   }
 
-  async function fetchUploads() {
-    try {
-      const { items } = await list({ path: userFolder });
-      const paths = items.map((item: { path: string }) => item.path);
-      setUploads(paths);
+  async function handleUpload() {
+    if (!image) {
+      alert("Please select an image.");
+      return;
+    }
 
-      const urls = await Promise.all(
-        paths.map(async (path: string) => {
-          const { url } = await getUrl({ path });
-          return url.href;
-        })
-      );
-      setUploadUrls(urls);
-    } catch (err) {
-      console.error("Error listing uploads:", err);
+    if (uploadItems.length >= MAX_UPLOADS) {
+      alert(`You can only upload up to ${MAX_UPLOADS} creations.`);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const base64 = await toBase64(image);
+
+      const res = await fetch(UPDATE_USER_CREATIONS_LAMBDA_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "upload",
+          username: user.username,
+          fileName: image.name,
+          fileContent: base64,
+          fileType: image.type,
+        }),
+      });
+
+      const result = await res.json();
+      console.log(result);
+
+      await fetchUploads(); // Refresh list
+      setImage(null); // Clear file input
+    } catch (error) {
+      console.error("Upload error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(key: string) {
+    const confirmDelete = window.confirm("Are you sure you want to delete this photo?");
+    if (!confirmDelete) return;
+
+    try {
+      await fetch(UPDATE_USER_CREATIONS_LAMBDA_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "delete",
+          username: user.username,
+          fileName: key.replace(`user-creations/${user.username}/`, ""),
+        }),
+      });
+
+      await fetchUploads(); // Refresh list
+    } catch (error) {
+      console.error("Delete error:", error);
     }
   }
 
@@ -62,54 +125,34 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
     }
   }
 
-  async function handleUpload() {
-    if (!image) {
-      alert("Please select an image first.");
-      return;
-    }
-
-    if (uploads.length >= MAX_UPLOADS) {
-      alert(`You can only upload up to ${MAX_UPLOADS} creations.`);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const fileName = `${Date.now()}_${image.name}`;
-      const path = `${userFolder}${fileName}`;
-
-      await uploadData({
-        path,
-        data: image,
-        options: { contentType: image.type },
-      }).result;
-
-      await fetchUploads();
-      setImage(null);
-    } catch (err) {
-      console.error("Upload error:", err);
-    } finally {
-      setLoading(false);
-    }
+  function toBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   }
 
   return (
     <div style={{ padding: 24, backgroundColor: "#f0f0f0", minHeight: "100vh" }}>
       <h1>Upload Your Creations</h1>
 
-      <p>You have uploaded {uploads.length} of {MAX_UPLOADS} allowed photos.</p>
+      <p>You have uploaded {uploadItems.length} of {MAX_UPLOADS} allowed photos.</p>
 
       <input
         type="file"
         accept="image/*"
         onChange={handleChange}
-        disabled={uploads.length >= MAX_UPLOADS}
+        disabled={uploadItems.length >= MAX_UPLOADS}
         style={{ marginTop: 16 }}
       />
       <button
         onClick={handleUpload}
-        disabled={!image || loading || uploads.length >= MAX_UPLOADS}
+        disabled={!image || loading || uploadItems.length >= MAX_UPLOADS}
         style={{
           marginLeft: 12,
           padding: "8px 16px",
@@ -126,8 +169,8 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
       <div style={{ marginTop: 32 }}>
         <h2>Your Uploaded Photos:</h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-          {uploadUrls.map((url, idx) => (
-            <div key={uploads[idx]} style={{ position: "relative" }}>
+          {uploadItems.map(({ key, url }) => (
+            <div key={key} style={{ position: "relative" }}>
               <img
                 src={url}
                 alt="Uploaded creation"
@@ -140,7 +183,7 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
                 }}
               />
               <button
-                onClick={() => handleDelete(uploads[idx])}
+                onClick={() => handleDelete(key)}
                 style={{
                   position: "absolute",
                   top: 4,
