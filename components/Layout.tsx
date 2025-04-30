@@ -65,6 +65,7 @@ export default function Layout({ children, signOut }: LayoutProps) {
             <li><Link href="/podcasts" onClick={handleMenuClick}>🎧 Podcasts</Link></li>
             <li><Link href="/creations" onClick={handleMenuClick}>🎨 My Creations</Link></li>
             <li><Link href="/learninghub" onClick={handleMenuClick}>📚 Learning Hub</Link></li>
+            <li><Link href="/challenge" onClick={handleMenuClick}>Photo Challenge</Link></li>
             {signOut && (
               <li style={{ marginTop: "1rem" }}>
                 <button
