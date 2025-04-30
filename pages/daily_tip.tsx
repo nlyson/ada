@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import { motion } from "framer-motion";
 
 type Tip = {
   date: string;
@@ -32,16 +33,14 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
           fetch("https://fixpg2k7q32zd7y2nw7ddmfuha0yzimy.lambda-url.us-east-1.on.aws/fetch_daily_tip"),
           fetch("https://x4pvvkw7np52wvlizo2njelwgq0kndxn.lambda-url.us-east-1.on.aws/fetch_tip_history"),
         ]);
-  
+
         const todayResult = await todayRes.json();
         const historyResult = await historyRes.json();
-  
+
         if (todayRes.ok && todayResult.tip) {
           setTodayTip(todayResult.tip);
-        } else {
-          console.warn("No tip found for today. Continuing with history only.");
         }
-  
+
         if (historyRes.ok && historyResult.tips) {
           const today = getTodayLocalDateString();
           const filteredTips = historyResult.tips.filter((tip: Tip) => tip.date !== today);
@@ -56,30 +55,28 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
         setLoading(false);
       }
     };
-  
+
     fetchData();
   }, []);
 
   return (
     <div
       style={{
-        backgroundColor: "#bfbfbf",
-        color: "white",
+        background: "linear-gradient(to bottom, #f2f2f2, #e0e0e0)",
         minHeight: "100vh",
+        color: "#333",
+        padding: "2rem 1rem",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        paddingTop: "4rem",
-        paddingLeft: "1rem",
-        paddingRight: "1rem",
+        fontFamily: "'Helvetica Neue', sans-serif",
       }}
     >
-      <div
-        style={{
-          maxWidth: "600px",
-          width: "100%",
-          textAlign: "center",
-        }}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        style={{ maxWidth: "700px", width: "100%", textAlign: "center" }}
       >
         <img
           src="/raccoon-logo.png"
@@ -87,64 +84,86 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
           style={{
             width: 100,
             height: 100,
-            objectFit: "cover",
             borderRadius: "50%",
-            marginBottom: 16,
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            objectFit: "cover",
+            marginBottom: 20,
+            boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)",
           }}
         />
-        <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Daily Photo Tip</h1>
 
-        {loading && (
-          <p style={{ marginBottom: "1rem" }}>Loading tips...</p>
-        )}
+        <h1 style={{ fontSize: "2.5rem", marginBottom: "0.5rem", color: "#b76e79" }}>
+          Daily Photo Tip
+        </h1>
 
-        {error && (
-          <p style={{ color: "red", marginBottom: "1rem" }}>
-            {error}
-          </p>
-        )}
+        <p style={{ marginBottom: "2rem", fontSize: "1rem", color: "#666" }}>
+          A fresh tip each day to level up your photography skills.
+        </p>
+
+        {loading && <p>Loading tips...</p>}
+
+        {error && <p style={{ color: "red" }}>{error}</p>}
 
         {!loading && !error && todayTip && (
-          <div
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
             style={{
-              marginTop: 16,
               background: "#fff",
               color: "#000",
-              padding: 20,
-              borderRadius: 10,
-              textAlign: "left",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-              fontSize: "1rem",
-              lineHeight: 1.5,
+              padding: "1.5rem",
+              borderRadius: "1rem",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
               marginBottom: "2rem",
+              textAlign: "left",
+              fontSize: "1.1rem",
+              lineHeight: 1.6,
             }}
           >
             <ReactMarkdown>{todayTip}</ReactMarkdown>
-          </div>
+          </motion.div>
+        )}
+
+        {tipHistory.length > 0 && (
+          <h2 style={{ fontSize: "1.5rem", margin: "2rem 0 1rem", color: "#b76e79" }}>
+            Previous Tips
+          </h2>
         )}
 
         {tipHistory.map((tip) => (
-          <div
+          <motion.div
             key={tip.date}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
             style={{
-              marginBottom: "1.5rem",
               background: "#fff",
               color: "#000",
-              padding: 16,
-              borderRadius: 8,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              padding: "1rem",
+              borderRadius: "0.75rem",
+              marginBottom: "1.5rem",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+              textAlign: "left",
             }}
           >
-            <div style={{ fontSize: "0.8rem", color: "#555", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              {new Date(tip.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+            <div
+              style={{
+                fontSize: "0.85rem",
+                fontWeight: 500,
+                marginBottom: "0.5rem",
+                color: "#888",
+              }}
+            >
+              {new Date(tip.date).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
             </div>
-            <div style={{ fontSize: "1rem", lineHeight: 1.5 }}>
-              <ReactMarkdown>{tip.tip}</ReactMarkdown>
-            </div>
-          </div>
+            <ReactMarkdown>{tip.tip}</ReactMarkdown>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 };
