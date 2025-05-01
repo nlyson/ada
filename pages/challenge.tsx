@@ -1,10 +1,11 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
 import { Amplify } from "aws-amplify";
 import amplifyConfig from "../amplify_outputs.json";
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 Amplify.configure(amplifyConfig);
 
-const SUBMIT_CHALLENGE_LAMBDA_URL = "https://nhxrddjqybktwepq62f7f3xgoq0mdxxg.lambda-url.us-east-1.on.aws/submit_challenge"; // Replace with actual URL
+const SUBMIT_CHALLENGE_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit_challenge"; // Replace with actual URL
 
 type AppProps = {
   signOut: () => void;
@@ -50,10 +51,11 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
 
     try {
       const base64 = await toBase64(image);
-
-      const res = await fetch(SUBMIT_CHALLENGE_LAMBDA_URL, {
+  
+      const result = await invokeLambdaIam({
+        url: SUBMIT_CHALLENGE_LAMBDA_URL, // API Gateway URL
         method: "POST",
-        body: JSON.stringify({
+        body: {
           action: "submit",
           username: user.username,
           challengeId: CHALLENGE_ID,
@@ -61,10 +63,9 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
           fileContent: base64,
           fileType: image.type,
           caption,
-        }),
+        },
       });
-
-      const result = await res.json();
+  
       setStatus(result.message || result.error);
       setImage(null);
       setCaption("");
