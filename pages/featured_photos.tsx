@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 type FeaturedPhoto = {
   username: string;
   photoUrl: string;
 };
+
+const FEATURED_LAMBDA_URL =
+  "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
 
 const FeaturedPhotos: React.FC = () => {
   const [photos, setPhotos] = useState<FeaturedPhoto[]>([]);
@@ -13,10 +17,13 @@ const FeaturedPhotos: React.FC = () => {
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
-        const response = await fetch("https://e6kljoi33rwhfdxscftnmpns2q0fxfrp.lambda-url.us-east-1.on.aws/featured_photos");
-        const result = await response.json();
+        const result = await invokeLambdaIam({
+          url: FEATURED_LAMBDA_URL,
+          method: "POST", // IAM-protected Function URLs must use POST (or signed GET)
+          body: {}, // empty payload if none needed
+        });
 
-        if (response.ok && result.featuredPhotos) {
+        if (result.featuredPhotos) {
           setPhotos(result.featuredPhotos);
         } else {
           throw new Error(result.error || "Unknown error");
@@ -45,12 +52,21 @@ const FeaturedPhotos: React.FC = () => {
       }}
     >
       <div style={{ maxWidth: 800, width: "100%" }}>
-        <h1 style={{ textAlign: "center", marginBottom: "2rem" }}>Featured Photos</h1>
+        <h1 style={{ textAlign: "center", marginBottom: "2rem" }}>
+          Featured Photos
+        </h1>
 
         {loading && <p>Loading featured photos...</p>}
         {error && <p style={{ color: "red" }}>{error}</p>}
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", justifyContent: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "1.5rem",
+            justifyContent: "center",
+          }}
+        >
           {photos.map((photo) => (
             <div
               key={photo.photoUrl}
