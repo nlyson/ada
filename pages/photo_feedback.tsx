@@ -3,11 +3,13 @@ import ReactMarkdown from "react-markdown";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "@/amplify/data/resource";
 import { uploadData, getUrl } from 'aws-amplify/storage';
-
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam"; // ✅ already set up
 import { Amplify } from 'aws-amplify';
 import amplifyConfig from '../amplify_outputs.json'; // ✅ path to your generated config
 
 Amplify.configure(amplifyConfig);
+
+const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo"
 
 type AppProps = {
   signOut: () => void;
@@ -32,6 +34,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+  
     if (!image) {
       alert("Please select an image.");
       return;
@@ -44,7 +47,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
       const fileName = `${Date.now()}_${image.name}`;
       const path = `picture-submissions/${fileName}`;
   
-      // ✅ Upload using the new `path` object
+      // ✅ Upload image to S3
       await uploadData({
         path,
         data: image,
@@ -53,19 +56,16 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         },
       }).result;
   
-      // ✅ Get URL using new `path` object
+      // ✅ Get signed S3 URL
       const { url: imageUrl } = await getUrl({ path });
   
-      // ✅ Call your API with the image URL
-      const response = await fetch("https://6aott3evimabdb4re7ylu5wxoq0ekfum.lambda-url.us-east-1.on.aws/review_photo", {
+      // ✅ Use IAM-signed request to API Gateway
+      const result = await invokeLambdaIam({
+        url: REVIEW_PHOTO_LAMBDA_URL, // ← replace with your API Gateway URL
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl }),
+        body: { imageUrl },
       });
-
-      console.log('---------API RESPONSE---', response)
   
-      const result = await response.json();
       setFeedback(result.result || "No feedback.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
