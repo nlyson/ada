@@ -74,18 +74,20 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
     try {
       const base64 = await toBase64(image);
 
-      const res = await fetch(UPDATE_USER_CREATIONS_LAMBDA_URL, {
+
+      const result = await invokeLambdaIam({
+        url: UPDATE_USER_CREATIONS_LAMBDA_URL, // API Gateway URL
         method: "POST",
-        body: JSON.stringify({
+        body : {
           action: "upload",
           username: user.username,
           fileName: image.name,
           fileContent: base64,
           fileType: image.type,
-        }),
+        }
       });
 
-      const result = await res.json();
+
       console.log(result);
 
       await fetchUploads(); // Refresh list
@@ -102,13 +104,15 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
     if (!confirmDelete) return;
 
     try {
-      await fetch(UPDATE_USER_CREATIONS_LAMBDA_URL, {
+
+      const res = await invokeLambdaIam({
+        url: UPDATE_USER_CREATIONS_LAMBDA_URL, // API Gateway URL
         method: "POST",
-        body: JSON.stringify({
+        body: {
           action: "delete",
           username: user.username,
           fileName: key.replace(`user-creations/${user.username}/`, ""),
-        }),
+        },
       });
 
       await fetchUploads(); // Refresh list
