@@ -7,6 +7,8 @@ import { invokeLambdaIam } from "@/utils/invokeLambdaIam"; // ✅ already set up
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo"
 const UPLOAD_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/upload_photo"
 
+const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo"
+
 type AppProps = {
   signOut: () => void;
   user: { username: string };
