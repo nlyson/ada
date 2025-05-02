@@ -1,10 +1,11 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
 import { Amplify } from "aws-amplify";
 import amplifyConfig from "../amplify_outputs.json";
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 Amplify.configure(amplifyConfig);
 
-const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://vsoxyxz3rpahtiwjtqhloxv3gm0ddcsz.lambda-url.us-east-1.on.aws/update_user_creations";
+const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_creations";
 
 
 type UploadItem = {
@@ -30,22 +31,22 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
 
   async function fetchUploads() {
     try {
-      const res = await fetch(UPDATE_USER_CREATIONS_LAMBDA_URL, {
+      const res = await invokeLambdaIam({
+        url: UPDATE_USER_CREATIONS_LAMBDA_URL, // API Gateway URL
         method: "POST",
-        body: JSON.stringify({
+        body: {
           action: "list",
           username: user.username,
-        }),
+        },
       });
 
-      const data = await res.json();
 
-      if (!data.items) {
-        console.error("No items from server:", data);
+      if (!res.items) {
+        console.error("No items from server:", res);
         return;
       }
 
-      const mappedItems: UploadItem[] = data.items.map(
+      const mappedItems: UploadItem[] = res.items.map(
         (item: { key: string; url: string }) => ({
           key: item.key,
           url: item.url,
