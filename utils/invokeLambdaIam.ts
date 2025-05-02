@@ -1,25 +1,28 @@
-// utils/invokeLambdaIam.ts
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { HttpRequest } from '@smithy/protocol-http';
 import { Sha256 } from '@aws-crypto/sha256-js';
 
+type InvokeLambdaOptions = {
+  url: string;
+  method?: 'GET' | 'POST';
+  body?: Record<string, any>;
+  responseType?: 'json' | 'text'; // ✅ New
+};
+
 export async function invokeLambdaIam({
   url,
   method = 'POST',
   body,
-}: {
-  url: string;
-  method?: 'GET' | 'POST';
-  body?: Record<string, any>;
-}) {
+  responseType = 'json', // ✅ Default
+}: InvokeLambdaOptions) {
   const { credentials } = await fetchAuthSession();
 
-  console.log("🔐 Credentials fetched:", credentials);
-  console.log("🔐 Calling URL:", url);
+  console.log('🔐 Credentials fetched:', credentials);
+  console.log('🔐 Calling URL:', url);
 
   if (!credentials) {
-    throw new Error("IAM credentials not available.");
+    throw new Error('IAM credentials not available.');
   }
 
   const parsedUrl = new URL(url);
@@ -59,5 +62,5 @@ export async function invokeLambdaIam({
     throw new Error(`Lambda request failed: ${response.status}`);
   }
 
-  return response.json();
+  return responseType === 'text' ? response.text() : response.json(); // ✅ Flexible response
 }

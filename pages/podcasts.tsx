@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 type PodcastEpisode = {
   title: string;
@@ -11,7 +12,7 @@ type PodcastPageProps = {
 };
 
 // ⛳ Change this to your Lambda URL
-const PODCAST_FEED_URL = "https://7mkh77a56lyimluguwh6reh6rm0swncy.lambda-url.us-east-1.on.aws/fetchPodcastFeed";
+const PODCAST_FEED_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetchPodcastFeed";
 
 const PodcastPage: React.FC<PodcastPageProps> = ({ signOut, user }) => {
   const [episodes, setEpisodes] = useState<PodcastEpisode[]>([]);
@@ -20,8 +21,11 @@ const PodcastPage: React.FC<PodcastPageProps> = ({ signOut, user }) => {
   useEffect(() => {
     const fetchFeed = async () => {
       try {
-        const response = await fetch(PODCAST_FEED_URL);
-        const xmlText = await response.text();
+        const xmlText = await invokeLambdaIam({
+          url: PODCAST_FEED_URL,
+          method: "GET",
+          responseType: "text", // important: don't try to parse as JSON
+        });        
         console.log("📥 RSS Feed received", xmlText.slice(0, 200));
 
         const parser = new DOMParser();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 type Tip = {
   date: string;
@@ -20,6 +21,9 @@ function getTodayLocalDateString() {
   return `${year}-${month}-${day}`;
 }
 
+const TIP_HISTORY_LAMBDA_URL =
+  "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/tip_history";
+
 const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
   const [todayTip, setTodayTip] = useState<string>("");
   const [tipHistory, setTipHistory] = useState<Tip[]>([]);
@@ -29,21 +33,22 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [todayRes, historyRes] = await Promise.all([
-          fetch("https://fixpg2k7q32zd7y2nw7ddmfuha0yzimy.lambda-url.us-east-1.on.aws/fetch_daily_tip"),
-          fetch("https://x4pvvkw7np52wvlizo2njelwgq0kndxn.lambda-url.us-east-1.on.aws/fetch_tip_history"),
-        ]);
+        const historyResult = await invokeLambdaIam({
+          url: TIP_HISTORY_LAMBDA_URL,
+          method: "GET",
+        });
 
-        const todayResult = await todayRes.json();
-        const historyResult = await historyRes.json();
-
-        if (todayRes.ok && todayResult.tip) {
-          setTodayTip(todayResult.tip);
-        }
-
-        if (historyRes.ok && historyResult.tips) {
+        if (historyResult.tips) {
           const today = getTodayLocalDateString();
-          const filteredTips = historyResult.tips.filter((tip: Tip) => tip.date !== today);
+
+          const todayTipEntry = historyResult.tips.find(
+            (tip: Tip) => tip.date === today
+          );
+          const filteredTips = historyResult.tips.filter(
+            (tip: Tip) => tip.date !== today
+          );
+
+          if (todayTipEntry) setTodayTip(todayTipEntry.tip);
           setTipHistory(filteredTips);
         } else {
           throw new Error(historyResult.error || "Unknown error loading tip history");
@@ -100,7 +105,6 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
         </p>
 
         {loading && <p>Loading tips...</p>}
-
         {error && <p style={{ color: "red" }}>{error}</p>}
 
         {!loading && !error && todayTip && (
@@ -122,12 +126,6 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
           >
             <ReactMarkdown>{todayTip}</ReactMarkdown>
           </motion.div>
-        )}
-
-        {tipHistory.length > 0 && (
-          <h2 style={{ fontSize: "1.5rem", margin: "2rem 0 1rem", color: "#b76e79" }}>
-            Previous Tips
-          </h2>
         )}
 
         {tipHistory.map((tip) => (
