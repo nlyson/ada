@@ -4,9 +4,17 @@ import { Authenticator } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
 import Layout from "@/components/Layout";
-import outputs from "@/amplify_outputs.json";
+import amplifyConfig from "@/amplify_outputs.json";
 
-Amplify.configure(outputs);
+Amplify.configure({
+  ...amplifyConfig,
+  Storage: {
+    S3: {
+      bucket: "picture-this-storage",
+      region: "us-east-1"
+    }
+  }
+});
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
