@@ -86,7 +86,7 @@ const UserProfile: React.FC<AppProps> = ({ user }) => {
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>👤 {username}'s Profile</h1>
+      <h1>👤 {username}&apos;s Profile</h1>
 
       <div style={{ textAlign: "center", marginBottom: 16 }}>
         <img
