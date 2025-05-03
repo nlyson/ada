@@ -5,9 +5,10 @@ import UserSearch from "@/components/UserSearch";
 type LayoutProps = {
   children: React.ReactNode;
   signOut?: () => void;
+  user?: { username: string };
 };
 
-export default function Layout({ children, signOut }: LayoutProps) {
+export default function Layout({ children, signOut, user }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Small helper to handle clicking a menu item
@@ -53,6 +54,11 @@ export default function Layout({ children, signOut }: LayoutProps) {
           visibility: menuOpen ? "visible" : "hidden",
         }}
       >
+                {/* User Search just below menu */}
+                <div style={{ marginTop: "1rem", padding: "0 1rem" }}>
+          <h3 style={{ marginBottom: "0.5rem" }}>🔍 Find a User Page</h3>
+          <UserSearch onSearch={handleMenuClick} />
+          </div>
         <nav style={{
           backgroundColor: "white",
           margin: "1rem",
@@ -62,11 +68,13 @@ export default function Layout({ children, signOut }: LayoutProps) {
         }}>
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             <li><Link href="/" onClick={handleMenuClick}>🏠 Home</Link></li>
+            {user && (
+            <li><Link href={`/users/${user.username}`} onClick={handleMenuClick}>👤 My Profile</Link></li>
+            )}
             <li><Link href="/featured_photos" onClick={handleMenuClick}>🌟 Featured Photos</Link></li>
             <li><Link href="/photo_feedback" onClick={handleMenuClick}>📝 Photo Feedback</Link></li>
             <li><Link href="/daily_tip" onClick={handleMenuClick}>📸 Daily Tip</Link></li>
             <li><Link href="/podcasts" onClick={handleMenuClick}>🎧 Podcasts</Link></li>
-            <li><Link href="/creations" onClick={handleMenuClick}>🎨 My Creations</Link></li>
             <li><Link href="/learninghub" onClick={handleMenuClick}>📚 Learning Hub</Link></li>
             <li><Link href="/challenge" onClick={handleMenuClick}>🏆 Photo Challenge</Link></li>
             <li><Link href="/scoreboard" onClick={handleMenuClick}>📊 High Scores</Link></li>
@@ -97,14 +105,7 @@ export default function Layout({ children, signOut }: LayoutProps) {
             )}
           </ul>
           </nav>
-
-        {/* User Search just below menu */}
-        <div style={{ marginTop: "1rem", padding: "0 1rem" }}>
-          <h3 style={{ marginBottom: "0.5rem" }}>🔍 Find a User Page</h3>
-          <UserSearch onSearch={handleMenuClick} />
-          </div>
         </div>
-
       <main style={{ padding: "1rem" }}>{children}</main>
     </div>
   );

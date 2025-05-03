@@ -1,3 +1,4 @@
+import { useRouter } from "next/router"
 import React, { useEffect, useState, ChangeEvent } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import { getUrl, uploadData } from "aws-amplify/storage";
@@ -13,12 +14,16 @@ type AppProps = {
 };
 
 const UserProfile: React.FC<AppProps> = ({ user }) => {
+
+  const router = useRouter();
+  const { username } = router.query;
+
+  const isOwner = user?.username === username
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileUrl, setProfileUrl] = useState<string>("");
   const [uploading, setUploading] = useState(false);
 
-  const username = user.username;
 
   useEffect(() => {
     const fetchPhotos = async () => {
