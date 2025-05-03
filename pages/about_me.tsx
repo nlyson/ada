@@ -17,7 +17,7 @@ const AboutPage: React.FC = () => {
         </div>
         <div style={styles.text}>
           <p>
-            Hello! I'm <strong>Your Name</strong>, a passionate photographer and software developer.
+            Hello! I&apos;m <strong>Your Name</strong>, a passionate photographer and software developer.
             I love capturing the world through a creative lens and sharing tools that help others grow their skills.
           </p>
           <p>
