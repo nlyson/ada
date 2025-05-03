@@ -15,6 +15,11 @@ const resources: LearningResource[] = [
     link: "https://jamapantel.myflodesk.com/ebook",
   },
   {
+    title: "NATURAL LIGHT CHEAT SHEET",
+    description: "EASY TO FOLLOW GUIDE FOR SMARTPHONE & DSLR",
+    link: "https://jamapantel.myflodesk.com/natural-light-cheat-sheet",
+  },
+  {
     title: "STRIKE A POSE",
     description: "LOOK YOUR BEST & FEEL CONFIDENT ON CAMERA",
     link: "https://jamapantel.myflodesk.com/strike-a-pose",

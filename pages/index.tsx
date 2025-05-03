@@ -28,7 +28,7 @@ export default function Home() {
         }}
       >
         <Image
-          src="/jama_home_screen.png"
+          src="/picture_mentor.png"
           alt="Company Logo"
           layout="responsive"
           width={400}
@@ -53,7 +53,7 @@ export default function Home() {
           fontWeight: 700,
         }}
       >
-        Picture This 📸
+        Photo Mentor 📸
       </motion.h1>
 
       <motion.p

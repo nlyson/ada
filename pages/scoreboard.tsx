@@ -3,7 +3,7 @@ import { getUrl } from "aws-amplify/storage";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 const FETCH_SCORES_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_scoreboard";
-const BUCKET = "amplify-d1gu2movs4qop8-nl-appstoragebucket6cbf3fd8-9ej6aeyhtt6o";
+const BUCKET = "picture-this-storage"
 
 const ScoreboardPage: React.FC = () => {
   const [scores, setScores] = useState<any[]>([]);
