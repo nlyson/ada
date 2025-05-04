@@ -5,7 +5,7 @@ import { getUrl, uploadData } from "aws-amplify/storage";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import { Amplify } from "aws-amplify";
 import amplifyConfig from "@/amplify_outputs.json";
-import { CommentThread } from "../CommentThread";
+import { CommentThread } from "@/components/CommentThread";
 
 Amplify.configure(amplifyConfig);
 
