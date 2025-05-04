@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import UserSearch from "@/components/UserSearch";
+import { useUnread } from "@/context/UnreadContext";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -10,6 +11,7 @@ type LayoutProps = {
 
 export default function Layout({ children, signOut, user }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { unreadCount } = useUnread();
 
   // Small helper to handle clicking a menu item
   const handleMenuClick = () => {
@@ -58,6 +60,12 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
                 <div style={{ marginTop: "1rem", padding: "0 1rem" }}>
           <h3 style={{ marginBottom: "0.5rem" }}>🔍 Find a User Page</h3>
           <UserSearch onSearch={handleMenuClick} />
+          <div style={{ marginTop: "1rem", padding: "0 1rem" }}>
+            <h3 style={{ marginBottom: "0.5rem" }}>📇 Browse Profiles</h3>
+            <Link href="/browse_profiles" onClick={handleMenuClick}>
+              View all public user profiles
+            </Link>
+          </div>
           </div>
         <nav style={{
           backgroundColor: "white",
@@ -69,7 +77,25 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             <li><Link href="/" onClick={handleMenuClick}>🏠 Home</Link></li>
             {user && (
-            <li><Link href={`/users/${user.username}`} onClick={handleMenuClick}>👤 My Profile</Link></li>
+              <li style={{ display: "flex", alignItems: "center" }}>
+                <Link href={`/users/${user.username}`} onClick={handleMenuClick} style={{ display: "flex", alignItems: "center" }}>
+                  👤 My Profile
+                  {unreadCount > 0 && (
+                    <span style={{
+                      background: "red",
+                      color: "white",
+                      marginLeft: 6,
+                      borderRadius: "50%",
+                      padding: "0 8px",
+                      fontSize: "0.75rem",
+                      fontWeight: "bold",
+                      lineHeight: "1.5rem",
+                    }}>
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+              </li>
             )}
             <li><Link href="/featured_photos" onClick={handleMenuClick}>🌟 Featured Photos</Link></li>
             <li><Link href="/photo_feedback" onClick={handleMenuClick}>📝 Photo Feedback</Link></li>

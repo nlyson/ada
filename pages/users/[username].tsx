@@ -5,6 +5,7 @@ import { getUrl, uploadData } from "aws-amplify/storage";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import { Amplify } from "aws-amplify";
 import amplifyConfig from "@/amplify_outputs.json";
+import { CommentThread } from "../CommentThread";
 
 Amplify.configure(amplifyConfig);
 
@@ -46,6 +47,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   const [image, setImage] = useState<File | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [unreadPhotoIds, setUnreadPhotoIds] = useState<string[]>([]);
   const [editProfile, setEditProfile] = useState<UserProfile>({
     username,
     displayName: "",
@@ -124,11 +126,28 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           body: { username },
         });
         setProfile(result);
-        setEditProfile(result ?? { username, name: "", aboutMe: "", favoriteSubjects: "" });
+        setEditProfile(result ?? { username, displayName: "", aboutMe: "", favoriteSubjects: "" });
       } catch (err) {
         console.warn("No profile found.");
         setProfile(null);
         setEditProfile({ username, displayName: "", aboutMe: "", favoriteSubjects: "" });
+      }
+    };
+
+    const fetchUnreadFlags = async () => {
+      if (!isOwner) return;
+      try {
+        const response = await fetch("https://your-api-endpoint/getUnreadCommentFlags", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username }),
+        });
+        const data = await response.json();
+        setUnreadPhotoIds(data.unreadPhotos || []);
+      } catch (err) {
+        console.error("Failed to fetch unread comments", err);
       }
     };
 
@@ -249,7 +268,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     <input
       placeholder="Name"
       value={editProfile?.displayName || ""}
-      onChange={(e) => setEditProfile(prev => prev && { ...prev, name: e.target.value })}
+      onChange={(e) => setEditProfile(prev => prev && { ...prev, displayName: e.target.value })}
     /><br />
     <textarea
       placeholder="About Me"
@@ -307,9 +326,34 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         <>
           <h2 style={{ marginTop: 32 }}>🖼️ Uploaded Creations</h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-            {uploadItems.map(({ key, url }) => (
+          {uploadItems.map(({ key, url }) => {
+            const hasUnread = unreadPhotoIds.includes(key);
+
+            return (
               <div key={key} style={{ position: "relative" }}>
                 <img src={url} style={{ width: 150, height: 150, borderRadius: 8 }} />
+
+                {hasUnread && (
+                  <span style={{
+                    position: "absolute",
+                    top: 4,
+                    left: 4,
+                    background: "gold",
+                    color: "black",
+                    padding: "2px 6px",
+                    borderRadius: 6,
+                    fontWeight: "bold",
+                    fontSize: "0.8rem"
+                  }}>
+                    🔔 New!
+                  </span>
+                )}
+
+                <CommentThread
+                  photoId={key}
+                  currentUser={user.username}
+                />
+
                 {isOwner && (
                   <button
                     onClick={() => handleDelete(key)}
@@ -317,10 +361,13 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
                       position: "absolute", top: 4, right: 4,
                       background: "red", color: "white", borderRadius: "50%", width: 24, height: 24
                     }}
-                  >🗑️</button>
+                  >
+                    🗑️
+                  </button>
                 )}
               </div>
-            ))}
+            );
+          })}
           </div>
         </>
       )}
