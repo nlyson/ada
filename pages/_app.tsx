@@ -5,6 +5,7 @@ import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
 import Layout from "@/components/Layout";
 import amplifyConfig from "@/amplify_outputs.json";
+import { UnreadProvider } from "@/context/UnreadContext";
 
 Amplify.configure({
   ...amplifyConfig,
@@ -20,9 +21,11 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <Authenticator hideSignUp>
       {({ signOut, user }) => (
-        <Layout signOut={signOut} user={user}> {/* ✅ pass signOut here */}
-          <Component {...pageProps} signOut={signOut} user={user} />
-        </Layout>
+        <UnreadProvider user={user}>
+          <Layout user={user} signOut={signOut}>
+            <Component signOut={signOut} user={user} />
+          </Layout>
+        </UnreadProvider>
       )}
     </Authenticator>
   );
