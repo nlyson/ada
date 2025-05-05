@@ -53,6 +53,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         data: image,
         options: {
           contentType: image.type,
+          bucket: "picture-this-storage"
         },
       }).result;
   
@@ -98,15 +99,14 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     }}
   >
     <img
-      src="/raccoon-logo.png"
-      alt="Raccoon Logo"
+      src="/photo_mentor_logo.png"
+      alt="Photo Mentor Logo"
       style={{
-        width: 100,
-        height: 100,
-        objectFit: "cover",
-        borderRadius: "50%",
+        width: "100%",
+        height: "auto", // 👈 preserve proportions
         marginBottom: 12,
-        boxShadow: "0 4px 10px rgba(0, 0, 0, 0.2)", // subtle elevation
+        display: "block",
+        boxShadow: "0 4px 10px rgba(0, 0, 0, 0.2)",
       }}
     />
 
