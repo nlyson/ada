@@ -43,7 +43,7 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
         >
           ☰
         </button>
-        <h1 style={{ fontSize: "1.5rem" }}>📸 Picture This</h1>
+        <h1 style={{ fontSize: "1.5rem" }}>📸 Photo Mentor</h1>
       </header>
 
       {/* Menu Panel */}

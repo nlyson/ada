@@ -24,6 +24,7 @@ const SET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/
 const MAX_UPLOADS = 10;
 const FETCH_USER_PHOTOS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_photos";
 const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_creations";
+const GET_UNREAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_unread_comment_flags";
 
 const BUCKET_PROFILE_PATH = "public/profile-pics"
 
@@ -77,13 +78,10 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
       try {
         const result = await getUrl({
           path: `${BUCKET_PROFILE_PATH}/${username}.jpg`,
-
         });
-
-        console.log('-----------result : ', result)
-
+        console.log("-------------------------------Profile pic result : ", result)
         const url = result?.url?.href;
-        console.log('----------url : ', url)
+        console.log("-------------------------------Url for pic : ", url)
         if (url) {
           // Try to fetch the image to confirm it actually exists
           const img = new Image();
@@ -137,20 +135,18 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     const fetchUnreadFlags = async () => {
       if (!isOwner) return;
       try {
-        const response = await fetch("https://your-api-endpoint/getUnreadCommentFlags", {
+        const result = await invokeLambdaIam({
+          url: GET_UNREAD_URL,
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username }),
+          body: { username },
         });
-        const data = await response.json();
-        setUnreadPhotoIds(data.unreadPhotos || []);
+        setUnreadPhotoIds(result.unreadPhotos || []);
       } catch (err) {
         console.error("Failed to fetch unread comments", err);
       }
     };
 
+    fetchUnreadFlags();
     fetchProfile();
     fetchPhotos();
     fetchProfilePic();
@@ -241,9 +237,9 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
                 await uploadData({
                   path: `${BUCKET_PROFILE_PATH}/${username}.jpg`,
                   data: file,
-                  options: { contentType: file.type },
+                  options: { contentType: file.type, bucket: "picture-this-storage" }
                 });
-                const result = await getUrl({ path: `${BUCKET_PROFILE_PATH}/${username}.jpg` });
+                const result = await getUrl({ path: `${BUCKET_PROFILE_PATH}/${username}.jpg`, options: {bucket: "picture-this-storage"}});
                 setProfileUrl(result.url.toString());
               }
             }}
@@ -330,8 +326,17 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
             const hasUnread = unreadPhotoIds.includes(key);
 
             return (
-              <div key={key} style={{ position: "relative" }}>
-                <img src={url} style={{ width: 150, height: 150, borderRadius: 8 }} />
+              <div key={key} style={{ position: "relative", width: 150 }}>
+                <img
+                  src={url}
+                  alt="User creation"
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    borderRadius: 8,
+                    display: "block"
+                  }}
+                />
 
                 {hasUnread && (
                   <span style={{
@@ -349,10 +354,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
                   </span>
                 )}
 
-                <CommentThread
-                  photoId={key}
-                  currentUser={user.username}
-                />
+                <CommentThread photoId={key} currentUser={user.username} />
 
                 {isOwner && (
                   <button

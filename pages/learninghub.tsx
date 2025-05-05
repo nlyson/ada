@@ -25,6 +25,11 @@ const resources: LearningResource[] = [
     link: "https://jamapantel.myflodesk.com/strike-a-pose",
   },
   {
+    title: "PERSONAL BRAND PROMPTS",
+    description: "30 DAYS OF PROMPTS: BUILD YOUR BRAND WITH CONFIDENCE",
+    link: "https://jamapantel.myflodesk.com/personalbrandprompts",
+  },
+  {
     title: "CONFIDENCE on CAMERA",
     description: "VIDEO REPLAY: PRACTICAL EXERCISES FOR BEING CONFIDENT ON CAMERA",
     link: "https://checkout.square.site/merchant/6BDM5B4Y9XQG3/checkout/KWGUVVXLUPBIBR46WHQQYABK",
