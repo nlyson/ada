@@ -3,13 +3,8 @@ import React, { useState, useEffect, ChangeEvent } from "react";
 import { useRouter } from "next/router";
 import { getUrl, uploadData } from "aws-amplify/storage";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
-import { Amplify } from "aws-amplify";
-import amplifyConfig from "@/amplify_outputs.json";
 import { CommentThread } from "@/components/CommentThread";
 import { ScavengerHuntGrid } from "@/components/ScavengerHuntGrid";
-
-Amplify.configure(amplifyConfig);
-
 
 type UserProfile = {
   username: string;

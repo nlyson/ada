@@ -3,7 +3,6 @@ import { Amplify } from "aws-amplify";
 import amplifyConfig from "../amplify_outputs.json";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
-
 const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_creations";
 
 

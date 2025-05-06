@@ -1,15 +1,15 @@
-import React, { useState, ChangeEvent, FormEvent } from "react";
+import "@/lib/configureAmplify"; // ✅ this guarantees Amplify is initialized no matter what
+import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "@/amplify/data/resource";
 import { uploadData, getUrl } from 'aws-amplify/storage';
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam"; // ✅ already set up
-import { Amplify } from 'aws-amplify';
-import amplifyConfig from '../amplify_outputs.json'; // ✅ path to your generated config
+import { Amplify } from "aws-amplify";
 
-Amplify.configure(amplifyConfig);
 
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo"
+const UPLOAD_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/upload_photo"
 
 type AppProps = {
   signOut: () => void;
@@ -17,7 +17,8 @@ type AppProps = {
 };
 
 const App: React.FC<AppProps> = ({ signOut, user }) => {
-  const client = generateClient<Schema>();
+
+  const [amplifyReady, setAmplifyReady] = useState(false);
 
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<string>("");
@@ -32,6 +33,18 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setFeedback("");
   }
 
+  function toBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  }
+  
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
   
@@ -44,38 +57,45 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setFeedback("");
   
     try {
-      const fileName = `${Date.now()}_${image.name}`;
-      const path = `picture-submissions/${fileName}`;
+      const base64 = await toBase64(image);
   
-      // ✅ Upload image to S3
-      await uploadData({
-        path,
-        data: image,
-        options: {
-          contentType: image.type,
-          bucket: "picture-this-storage"
-        },
-      }).result;
-  
-      // ✅ Get signed S3 URL
-      const { url: imageUrl } = await getUrl({ path });
-  
-      // ✅ Use IAM-signed request to API Gateway
-      const result = await invokeLambdaIam({
-        url: REVIEW_PHOTO_LAMBDA_URL, // ← replace with your API Gateway URL
+      // ✅ Upload image
+      const uploadResponse = await invokeLambdaIam({
+        url: UPLOAD_PHOTO_LAMBDA_URL,
         method: "POST",
-        body: { imageUrl },
+        body: {
+          fileContent: base64,
+          fileType: image.type,
+          fileName: image.name,
+          username: user.username,
+        },
+      });
+  
+      const { imageUrl, s3Key } = uploadResponse;
+  
+      // ✅ Send to review Lambda
+      const result = await invokeLambdaIam({
+        url: REVIEW_PHOTO_LAMBDA_URL,
+        method: "POST",
+        body: {
+          imageUrl,
+          s3Key,
+          rubric: false, // or true if you want scoring
+          username: user.username,
+          challengeId: "manual-feedback",
+        },
       });
   
       setFeedback(result.result || "No feedback.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error("Error analyzing image:", err);
-      setFeedback(`Error analyzing image ${err}.`);
+      setFeedback(`Error analyzing image: ${err}`);
     } finally {
       setLoading(false);
     }
   }
+  
 
   return (
 // inside your return...
