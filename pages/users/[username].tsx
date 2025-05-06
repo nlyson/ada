@@ -6,6 +6,7 @@ import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import { Amplify } from "aws-amplify";
 import amplifyConfig from "@/amplify_outputs.json";
 import { CommentThread } from "@/components/CommentThread";
+import { ScavengerHuntGrid } from "@/components/ScavengerHuntGrid";
 
 Amplify.configure(amplifyConfig);
 
@@ -25,6 +26,10 @@ const MAX_UPLOADS = 10;
 const FETCH_USER_PHOTOS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_photos";
 const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_creations";
 const GET_UNREAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_unread_comment_flags";
+
+const SUBMIT_HUNT_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
+const GET_USER_HUNT_PROGRESS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get-user-hunt-progress"
+
 
 const BUCKET_PROFILE_PATH = "public/profile-pics"
 
@@ -49,14 +54,51 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [unreadPhotoIds, setUnreadPhotoIds] = useState<string[]>([]);
+  const [scavengerProgress, setScavengerProgress] = useState<{ [promptId: string]: string }>({});
+
   const [editProfile, setEditProfile] = useState<UserProfile>({
     username,
     displayName: "",
     aboutMe: "",
     favoriteSubjects: "",
   });
+  const huntStart = new Date("2025-05-05");
+  const today = new Date();
+  const unlockedCount = Math.min(30, Math.floor((today.getTime() - huntStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+  
+  const scavengerPrompts = [
+      ...'abcdefghijklmnopqrstuvwxyz'.split('').map(letter => ({
+        promptId: letter,
+        text: `Something that starts with ${letter.toUpperCase()}`
+      })),
+      { promptId: "number", text: "A photo with a number in it" },
+      { promptId: "color", text: "A photo dominated by one color" },
+      { promptId: "reflection", text: "Something with a reflection" },
+      { promptId: "pattern", text: "A repeating pattern" }
+    ];
 
   const isOwner = user?.username === username;
+
+
+
+  async function handleHuntUpload(promptId: string, file: File) {
+    const base64 = await toBase64(file);
+    await invokeLambdaIam({
+      url: SUBMIT_HUNT_PHOTO_URL, // TODO: update with real Lambda
+      method: "POST",
+      body: {
+        huntId: "alphabet-hunt-2025",
+        username: user.username,
+        promptId,
+        fileContent: base64,
+        fileType: file.type,
+      },
+    });
+  
+    // After upload, fetch the updated photo URL (simplified)
+    const url = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+    setScavengerProgress((prev) => ({ ...prev, [promptId]: url }));
+  }
 
   useEffect(() => {
     if (!username) return;
@@ -79,9 +121,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         const result = await getUrl({
           path: `${BUCKET_PROFILE_PATH}/${username}.jpg`,
         });
-        console.log("-------------------------------Profile pic result : ", result)
         const url = result?.url?.href;
-        console.log("-------------------------------Url for pic : ", url)
         if (url) {
           // Try to fetch the image to confirm it actually exists
           const img = new Image();
@@ -92,7 +132,6 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           setProfileUrl("/default-avatar.png");
         }
       } catch (err){
-        console.error('-----------Error fetchign profile pic', err)
         setProfileUrl("/default-avatar.png");
       }
 
@@ -146,6 +185,31 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
       }
     };
 
+    async function fetchHuntProgress() {
+      try {
+        const res = await invokeLambdaIam({
+          url: GET_USER_HUNT_PROGRESS_URL,
+          method: "POST",
+          body: {
+            username,
+            huntId: "alphabet-hunt-2025"
+          }
+        });
+    
+        const promptIds: string[] = res.promptIds || [];
+    
+        const mapped: { [promptId: string]: string } = {};
+        for (const id of promptIds) {
+          mapped[id] = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${username}/${id}.jpg`;
+        }
+    
+        setScavengerProgress(mapped);
+      } catch (err) {
+        console.error("Failed to fetch scavenger hunt progress:", err);
+      }
+    }
+
+    fetchHuntProgress();
     fetchUnreadFlags();
     fetchProfile();
     fetchPhotos();
@@ -385,7 +449,20 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           ))}
         </div>
       )}
+      <h2 style={{ marginTop: 48 }}>🕵️‍♂️ Scavenger Hunt</h2>
+      <p style={{ fontStyle: "italic", marginBottom: 16 }}>
+        One photo per prompt — choose your shot carefully! Once submitted, it counts as your official entry for that day.
+      </p>
+      <ScavengerHuntGrid
+        username={username}
+        isOwner={isOwner}
+        unlockedCount={unlockedCount}
+        submissions={scavengerProgress}
+        prompts={scavengerPrompts}
+        onUpload={handleHuntUpload}
+      />
     </div>
+
   );
 };
 
