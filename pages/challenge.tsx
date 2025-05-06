@@ -3,8 +3,6 @@ import { Amplify } from "aws-amplify";
 import amplifyConfig from "../amplify_outputs.json";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
-Amplify.configure(amplifyConfig);
-
 const SUBMIT_CHALLENGE_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit_challenge"; // Replace with actual URL
 const FETCH_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_results"
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo"

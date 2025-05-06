@@ -1,14 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { list, getUrl } from 'aws-amplify/storage';
-import { Amplify } from 'aws-amplify';
-import amplifyConfig from '../../amplify_outputs.json';
-
-Amplify.configure(amplifyConfig);
 
 type FeaturedPhoto = {
   username: string;
   photoUrl: string;
 };
+
+const BUCKET = "picture-this-storage";
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -29,13 +28,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           userMap[username] = true;
 
           // Now list this user's images
-          const { items: userImages } = await list({ path: `user-creations/${username}/` });
+          const { items: userImages } = await list({ path: `user-creations/${username}/`, options: {bucket: BUCKET} });
 
           if (userImages.length > 0) {
             const randomIndex = Math.floor(Math.random() * userImages.length);
             const randomImage = userImages[randomIndex];
 
-            const { url } = await getUrl({ path: randomImage.path });
+            const { url } = await getUrl({ path: randomImage.path, options: {bucket: BUCKET} });
 
             featuredPhotos.push({
               username,
