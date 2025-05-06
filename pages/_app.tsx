@@ -1,4 +1,3 @@
-import "@/lib/configureAmplify"; // ✅ this guarantees Amplify is initialized no matter what
 import { Amplify } from 'aws-amplify';
 import amplifyConfig from '@/amplify_outputs.json';
 import "@/styles/app.css";
@@ -8,15 +7,7 @@ import "@aws-amplify/ui-react/styles.css";
 import Layout from "@/components/Layout";
 import { UnreadProvider } from "@/context/UnreadContext";
 
-Amplify.configure({
-  ...amplifyConfig,
-  storage: {
-    appStorage: {
-      bucketName: "picture-this-storage",
-      region: "us-east-1"
-    }
-  }
-})
+Amplify.configure(amplifyConfig)
 
 export default function App({ Component, pageProps }: AppProps) {
   return (

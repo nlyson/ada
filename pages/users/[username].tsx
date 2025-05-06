@@ -6,12 +6,14 @@ import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import { CommentThread } from "@/components/CommentThread";
 import { ScavengerHuntGrid } from "@/components/ScavengerHuntGrid";
 
+
 type UserProfile = {
   username: string;
   displayName: string;
   aboutMe: string;
   favoriteSubjects: string;
 };
+
 
 
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
