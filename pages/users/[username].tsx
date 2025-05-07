@@ -3,8 +3,12 @@ import React, { useState, useEffect, ChangeEvent } from "react";
 import { useRouter } from "next/router";
 import { getUrl, uploadData } from "aws-amplify/storage";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
-import { CommentThread } from "@/components/CommentThread";
-import { ScavengerHuntGrid } from "@/components/ScavengerHuntGrid";
+import ProfileCard from "@/components/ProfileCard";
+import EditProfileSection from "@/components/EditProfileSection";
+import UserUploads from "@/components/UserUploads";
+import ChallengeSubmissions from "@/components/ChallengeSubmissions";
+import ScavengerHuntSection from "@/components/ScavengerHuntSection";
+import ProfileDetails from "@/components/ProfileDetails";
 
 
 type UserProfile = {
@@ -282,180 +286,58 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     <div style={{ padding: 24 }}>
       <h1>👤 {username}&apos;s Profile</h1>
 
-      <div style={{ textAlign: "center", marginBottom: 16 }}>
-        <img
-          src={profileUrl}
-          alt={`${username}&apos;profile`}
-          style={{ width: 120, height: 120, borderRadius: "50%", objectFit: "cover" }}
-        />
-        {isOwner && (
-          <input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              if (e.target.files?.length) {
-                const file = e.target.files[0];
-                await uploadData({
-                  path: `${BUCKET_PROFILE_PATH}/${username}.jpg`,
-                  data: file,
-                  options: { contentType: file.type, bucket: "picture-this-storage" }
-                });
-                const result = await getUrl({ path: `${BUCKET_PROFILE_PATH}/${username}.jpg`, options: {bucket: "picture-this-storage"}});
-                setProfileUrl(result.url.toString());
-              }
-            }}
-          />
-        )}
 
-      </div>
-      <h2>📝 Profile Info</h2>
-{profile ? (
-  <div style={{ marginBottom: 20 }}>
-    <p><strong>Name:</strong> {profile.displayName}</p>
-    <p><strong>About Me:</strong> {profile.aboutMe}</p>
-    <p><strong>Favorite Subjects:</strong> {profile.favoriteSubjects}</p>
-  </div>
-) : (
-  <p>No profile info available.</p>
-)}
 
-{isOwner && (
-  <div style={{ marginBottom: 20 }}>
-    <h3>Edit Profile</h3>
-    <input
-      placeholder="Name"
-      value={editProfile?.displayName || ""}
-      onChange={(e) => setEditProfile(prev => prev && { ...prev, displayName: e.target.value })}
-    /><br />
-    <textarea
-      placeholder="About Me"
-      value={editProfile?.aboutMe || ""}
-      onChange={(e) => setEditProfile(prev => prev && { ...prev, aboutMe: e.target.value })}
-    /><br />
-    <input
-      placeholder="Favorite Subjects"
-      value={editProfile?.favoriteSubjects || ""}
-      onChange={(e) => setEditProfile(prev => prev && { ...prev, favoriteSubjects: e.target.value })}
-    /><br />
-    <button
-      disabled={savingProfile}
-      onClick={async () => {
-        setSavingProfile(true);
-        try {
-          await invokeLambdaIam({
-            url: SET_PROFILE_URL,
-            method: "POST",
-            body: {
-              username,
-              displayName: editProfile.displayName, // map correctly
-              aboutMe: editProfile.aboutMe,
-              favoriteSubjects: editProfile.favoriteSubjects
-                ? editProfile.favoriteSubjects.split(",").map((s) => s.trim())
-                : [], // convert comma string to string[]
-            },
-          });
-          setProfile(editProfile);
-        } catch (err) {
-          console.error("Error saving profile:", err);
-        } finally {
-          setSavingProfile(false);
-        }
-      }}
-    >
-      {savingProfile ? "Saving..." : "Save Profile"}
-    </button>
-  </div>
-)}
-      {isOwner && (
-        <>
-          <h2>🎨 Upload Your Creations</h2>
-          <p>You’ve uploaded {uploadItems.length} of {MAX_UPLOADS}</p>
-          <input type="file" accept="image/*" onChange={(e) => {
-            if (e.target.files?.length) setImage(e.target.files[0]);
-          }} />
-          <button disabled={!image || uploading} onClick={handleUpload}>
-            {uploading ? "Uploading..." : "Upload"}
-          </button>
-        </>
-      )}
+      <ProfileCard
+      username={username}
+      displayName={profile?.displayName}
+      profileUrl={profileUrl}
+      isOwner={isOwner}
+      setProfileUrl={setProfileUrl}
+    />
+<ProfileDetails profile={profile} />
 
-      {uploadItems.length > 0 && (
-        <>
-          <h2 style={{ marginTop: 32 }}>🖼️ Uploaded Creations</h2>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-          {uploadItems.map(({ key, url }) => {
-            const hasUnread = unreadPhotoIds.includes(key);
+    {isOwner && (
+      <EditProfileSection
+        editProfile={editProfile}
+        setEditProfile={setEditProfile}
+        onSave={async () => {
+          setSavingProfile(true);
+          try {
+            await invokeLambdaIam({
+              url: "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/set_user_profile",
+              method: "POST",
+              body: {
+                username,
+                displayName: editProfile.displayName,
+                aboutMe: editProfile.aboutMe,
+                favoriteSubjects: editProfile.favoriteSubjects
+                  ? editProfile.favoriteSubjects.split(",").map((s) => s.trim())
+                  : [],
+              },
+            });
+            setProfile(editProfile);
+          } catch (err) {
+            console.error("Error saving profile:", err);
+          } finally {
+            setSavingProfile(false);
+          }
+        }}
+        saving={savingProfile}
+      />
+    )}
+    <UserUploads
+      uploadItems={uploadItems}
+      unreadPhotoIds={unreadPhotoIds}
+      onUpload={isOwner ? handleUpload : undefined}
+      onDelete={isOwner ? handleDelete : undefined}
+    />
+      <ChallengeSubmissions photos={photos} loading={loading} />
 
-            return (
-              <div key={key} style={{ position: "relative", width: 150 }}>
-                <img
-                  src={url}
-                  alt="User creation"
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    borderRadius: 8,
-                    display: "block"
-                  }}
-                />
-
-                {hasUnread && (
-                  <span style={{
-                    position: "absolute",
-                    top: 4,
-                    left: 4,
-                    background: "gold",
-                    color: "black",
-                    padding: "2px 6px",
-                    borderRadius: 6,
-                    fontWeight: "bold",
-                    fontSize: "0.8rem"
-                  }}>
-                    🔔 New!
-                  </span>
-                )}
-
-                <CommentThread photoId={key} currentUser={user.username} />
-
-                {isOwner && (
-                  <button
-                    onClick={() => handleDelete(key)}
-                    style={{
-                      position: "absolute", top: 4, right: 4,
-                      background: "red", color: "white", borderRadius: "50%", width: 24, height: 24
-                    }}
-                  >
-                    🗑️
-                  </button>
-                )}
-              </div>
-            );
-          })}
-          </div>
-        </>
-      )}
-
-      <h2 style={{ marginTop: 32 }}>📷 Challenge Submissions</h2>
-      {loading ? <p>Loading...</p> : photos.length === 0 ? <p>No photos yet.</p> : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
-          {photos.map((photo, i) => (
-            <div key={i} style={{ textAlign: "center" }}>
-              <img src={photo.imageUrl} alt={photo.caption} style={{ width: "100%", borderRadius: 8 }} />
-              {photo.caption && <p>{photo.caption}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-      <h2 style={{ marginTop: 48 }}>🕵️‍♂️ Scavenger Hunt</h2>
-      <p style={{ fontStyle: "italic", marginBottom: 16 }}>
-        One photo per prompt — choose your shot carefully! Once submitted, it counts as your official entry for that day.
-      </p>
-      <ScavengerHuntGrid
+      <ScavengerHuntSection
         username={username}
         isOwner={isOwner}
-        unlockedCount={unlockedCount}
-        submissions={scavengerProgress}
-        prompts={scavengerPrompts}
+        progress={scavengerProgress}
         onUpload={handleHuntUpload}
       />
     </div>

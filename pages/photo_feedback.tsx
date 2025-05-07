@@ -1,11 +1,7 @@
 import "@/lib/configureAmplify"; // ✅ this guarantees Amplify is initialized no matter what
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
-import { uploadData, getUrl } from 'aws-amplify/storage';
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam"; // ✅ already set up
-import { Amplify } from "aws-amplify";
 
 
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo"
@@ -17,9 +13,6 @@ type AppProps = {
 };
 
 const App: React.FC<AppProps> = ({ signOut, user }) => {
-
-  const [amplifyReady, setAmplifyReady] = useState(false);
-
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -98,123 +91,129 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
   
 
   return (
-// inside your return...
-
-<div
-  style={{
-    backgroundColor: "#bfbfbf",
-    color: "white",
-    minHeight: "100vh",
-    position: "relative",
-  }}
->
-  {/* Main content */}
-  <div
-    style={{
-      maxWidth: 600,
-      margin: "0 auto",
-      padding: "1.5rem",
-      textAlign: "center",
-      paddingTop: "4rem", // avoid overlap with sign out
-    }}
-  >
-    <img
-      src="/photo_mentor_logo.png"
-      alt="Photo Mentor Logo"
+    <div
       style={{
-        width: "100%",
-        height: "auto", // 👈 preserve proportions
-        marginBottom: 12,
-        display: "block",
-        boxShadow: "0 4px 10px rgba(0, 0, 0, 0.2)",
-      }}
-    />
-
-    <h2 style={{ fontSize: "1.8rem", margin: "1rem 0" }}>Photo Feedback</h2>
-
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 16,
-        marginTop: 24,
+        backgroundColor: "#f9fafb", // lighter neutral background
+        color: "#111827",
+        minHeight: "100vh",
+        padding: "2rem 1rem",
+        fontFamily: "system-ui, sans-serif",
       }}
     >
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleChange}
-        style={{
-          padding: 12,
-          borderRadius: 8,
-          border: "1px solid #ccc",
-          backgroundColor: "#fff",
-          color: "#000",
-          fontSize: "1rem",
-          width: "100%",
-          cursor: "pointer",
-        }}
-      />
-
-      <button
-        type="submit"
-        disabled={loading}
-        style={{
-          padding: "12px 24px",
-          backgroundColor: "#0070f3",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-          cursor: "pointer",
-          fontSize: "1rem",
-          fontWeight: "bold",
-          width: "100%",
-          maxWidth: "300px",
-        }}
-      >
-        {loading ? "Analyzing..." : "Analyze Photo"}
-      </button>
-    </form>
-
-    {image && (
-      <img
-        src={URL.createObjectURL(image)}
-        alt="preview"
-        style={{
-          width: "100%",
-          maxHeight: "50vh",
-          objectFit: "contain",
-          marginTop: 24,
-          borderRadius: 8,
-          boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
-          filter: loading ? "blur(2px) grayscale(0.6)" : "none",
-          transition: "filter 0.3s ease-in-out",
-        }}
-      />
-    )}
-
-    {feedback && (
       <div
         style={{
-          marginTop: 32,
-          background: "#fff",
-          color: "#000",
-          padding: 20,
-          borderRadius: 12,
-          textAlign: "left",
-          fontSize: "1rem",
-          lineHeight: 1.5,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+          maxWidth: 600,
+          margin: "0 auto",
+          backgroundColor: "white",
+          borderRadius: 16,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+          padding: "2rem",
+          textAlign: "center",
         }}
       >
-        <h2 style={{ marginTop: 0, fontSize: "1.5rem" }}>Photographer Feedback</h2>
-        <ReactMarkdown>{feedback}</ReactMarkdown>
+        {/* Logo */}
+        <img
+          src="/photo_mentor_logo.png"
+          alt="Photo Mentor Logo"
+          style={{
+            width: "100%",
+            maxWidth: 200,
+            margin: "0 auto 1rem auto",
+            display: "block",
+          }}
+        />
+
+        <h2 style={{ fontSize: "1.8rem", margin: "1.5rem 0 1rem" }}>Photo Feedback</h2>
+
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "1rem",
+          }}
+        >
+          <label
+            htmlFor="fileInput"
+            style={{
+              display: "inline-block",
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#e5e7eb",
+              borderRadius: "9999px",
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            📷 Choose a Photo
+          </label>
+          <input
+            id="fileInput"
+            type="file"
+            accept="image/*"
+            onChange={handleChange}
+            style={{ display: "none" }}
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#b76e79",
+              color: "white",
+              border: "none",
+              borderRadius: "9999px",
+              fontSize: "1rem",
+              fontWeight: "bold",
+              cursor: "pointer",
+              width: "100%",
+              maxWidth: "300px",
+            }}
+          >
+            {loading ? "Analyzing..." : "Analyze Photo"}
+          </button>
+        </form>
+
+        {image && (
+          <img
+            src={URL.createObjectURL(image)}
+            alt="preview"
+            style={{
+              width: "100%",
+              maxHeight: "50vh",
+              objectFit: "contain",
+              marginTop: 24,
+              borderRadius: 12,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              filter: loading ? "blur(2px) grayscale(0.6)" : "none",
+              transition: "filter 0.3s ease-in-out",
+            }}
+          />
+        )}
+
+        {feedback && (
+          <div
+            style={{
+              marginTop: 32,
+              background: "#f3f4f6",
+              padding: 24,
+              borderRadius: 12,
+              textAlign: "left",
+              lineHeight: 1.6,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            }}
+          >
+            <h3 style={{ marginTop: 0, fontSize: "1.25rem", fontWeight: 600 }}>
+              🧠 Photographer Feedback
+            </h3>
+            <div style={{ marginTop: 12 }}>
+              <ReactMarkdown>{feedback}</ReactMarkdown>
+            </div>
+          </div>
+        )}
       </div>
-    )}
-  </div>
-</div>
+    </div>
 
   );
 };
