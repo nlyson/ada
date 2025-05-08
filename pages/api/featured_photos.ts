@@ -12,7 +12,7 @@ const BUCKET = "picture-this-storage";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     // List all top-level user folders
-    const { items: userFolders } = await list({ path: "user-creations/", options: { listAll: true } });
+    const { items: userFolders } = await list({ path: "user-creations/", options: { listAll: true, bucket: BUCKET} });
 
     const userMap: Record<string, boolean> = {}; // to track unique users
     const featuredPhotos: FeaturedPhoto[] = [];

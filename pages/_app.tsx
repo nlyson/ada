@@ -1,5 +1,8 @@
 import { Amplify } from 'aws-amplify';
 import amplifyConfig from '@/amplify_outputs.json';
+
+Amplify.configure(amplifyConfig)
+
 import "@/styles/app.css";
 import type { AppProps } from "next/app";
 import { Authenticator } from "@aws-amplify/ui-react";
@@ -7,7 +10,6 @@ import "@aws-amplify/ui-react/styles.css";
 import Layout from "@/components/Layout";
 import { UnreadProvider } from "@/context/UnreadContext";
 
-Amplify.configure(amplifyConfig)
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
