@@ -18,9 +18,6 @@ export async function invokeLambdaIam({
 }: InvokeLambdaOptions) {
   const { credentials } = await fetchAuthSession();
 
-  console.log('🔐 Credentials fetched:', credentials);
-  console.log('🔐 Calling URL:', url);
-
   if (!credentials) {
     throw new Error('IAM credentials not available.');
   }

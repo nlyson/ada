@@ -1,7 +1,6 @@
 // pages/users/[username].tsx
 import React, { useState, useEffect, ChangeEvent } from "react";
 import { useRouter } from "next/router";
-import { getUrl, uploadData } from "aws-amplify/storage";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import ProfileCard from "@/components/ProfileCard";
 import EditProfileSection from "@/components/EditProfileSection";
@@ -10,15 +9,12 @@ import ChallengeSubmissions from "@/components/ChallengeSubmissions";
 import ScavengerHuntSection from "@/components/ScavengerHuntSection";
 import ProfileDetails from "@/components/ProfileDetails";
 
-
 type UserProfile = {
   username: string;
   displayName: string;
   aboutMe: string;
   favoriteSubjects: string;
 };
-
-
 
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
 const SET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/set_user_profile";
@@ -31,8 +27,9 @@ const GET_UNREAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/p
 const SUBMIT_HUNT_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
 const GET_USER_HUNT_PROGRESS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get-user-hunt-progress"
 
-
 const BUCKET_PROFILE_PATH = "public/profile-pics"
+
+const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaws.com"
 
 type UploadItem = {
   key: string;
@@ -63,24 +60,8 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     aboutMe: "",
     favoriteSubjects: "",
   });
-  const huntStart = new Date("2025-05-05");
-  const today = new Date();
-  const unlockedCount = Math.min(30, Math.floor((today.getTime() - huntStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-  
-  const scavengerPrompts = [
-      ...'abcdefghijklmnopqrstuvwxyz'.split('').map(letter => ({
-        promptId: letter,
-        text: `Something that starts with ${letter.toUpperCase()}`
-      })),
-      { promptId: "number", text: "A photo with a number in it" },
-      { promptId: "color", text: "A photo dominated by one color" },
-      { promptId: "reflection", text: "Something with a reflection" },
-      { promptId: "pattern", text: "A repeating pattern" }
-    ];
 
   const isOwner = user?.username === username;
-
-
 
   async function handleHuntUpload(promptId: string, file: File) {
     const base64 = await toBase64(file);
@@ -119,23 +100,12 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
     async function fetchProfilePic() {
       try {
-        const result = await getUrl({
-          path: `${BUCKET_PROFILE_PATH}/${username}.jpg`,
-        });
-        const url = result?.url?.href;
-        if (url) {
-          // Try to fetch the image to confirm it actually exists
-          const img = new Image();
-          img.src = url;
-          img.onload = () => setProfileUrl(url);
-          img.onerror = () => setProfileUrl("/default-avatar.png");
-        } else {
-          setProfileUrl("/default-avatar.png");
-        }
+        const url = `${PICTURE_THIS_STORAGE_FULL_PATH}/${BUCKET_PROFILE_PATH}/${username}.jpg`
+        setProfileUrl(url);
       } catch (err){
+        console.log('--------------error during fetch pic')
         setProfileUrl("/default-avatar.png");
       }
-
     };
 
     async function fetchUploads() {
@@ -305,7 +275,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           setSavingProfile(true);
           try {
             await invokeLambdaIam({
-              url: "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/set_user_profile",
+              url: SET_PROFILE_URL,
               method: "POST",
               body: {
                 username,
