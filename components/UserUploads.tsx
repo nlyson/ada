@@ -7,6 +7,8 @@ type UploadItem = {
 };
 
 type Props = {
+    username: string;
+    isOwner: boolean;
     uploadItems: UploadItem[];
     unreadPhotoIds: string[];
     onUpload?: (file: File) => void;   // ✅ make optional
@@ -16,6 +18,8 @@ type Props = {
 const MAX_UPLOADS = 10;
 
 const UserUploads: React.FC<Props> = ({
+  isOwner,
+  username,
   uploadItems,
   unreadPhotoIds,
   onUpload,

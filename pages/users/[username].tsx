@@ -42,7 +42,8 @@ type AppProps = {
 };
 
 const UserPage: React.FC<AppProps> = ({ user }) => {
-  const { username } = useRouter().query as { username: string };
+  const router = useRouter();
+  const username = router.query.username as string;
   const [photos, setPhotos] = useState<any[]>([]);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,8 +190,9 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     setLoading(false);
   }, [username]);
 
-  async function handleUpload() {
-    if (!image) return;
+  async function handleUpload(file: File) {
+    if (!file) return;
+  
     if (uploadItems.length >= MAX_UPLOADS) {
       alert("Upload limit reached.");
       return;
@@ -198,16 +200,16 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
     setUploading(true);
     try {
-      const base64 = await toBase64(image);
-      await invokeLambdaIam({
+      const base64 = await toBase64(file);
+      const result = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
         body: {
           action: "upload",
           username: user.username,
-          fileName: image.name,
+          fileName: file.name,
           fileContent: base64,
-          fileType: image.type,
+          fileType: file.type,
         },
       });
       setImage(null);
@@ -297,10 +299,12 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
       />
     )}
     <UserUploads
+      username={username}
+      isOwner={isOwner}
       uploadItems={uploadItems}
       unreadPhotoIds={unreadPhotoIds}
-      onUpload={isOwner ? handleUpload : undefined}
-      onDelete={isOwner ? handleDelete : undefined}
+      onUpload={ isOwner ? handleUpload : undefined }
+      onDelete={ isOwner ? handleDelete : undefined }
     />
       <ChallengeSubmissions photos={photos} loading={loading} />
 
