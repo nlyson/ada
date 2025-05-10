@@ -40,7 +40,6 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser }) => {
                   photoId
                 }
               });
-              console.log("✅ Marked as read:", res);
               hasMarkedRef.current = true;
               refreshUnread(); // 👈 This will update the red badge
             } catch (err) {
@@ -82,8 +81,6 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser }) => {
             method: "POST",
             body: { photoId }
         });
-
-        console.log("res2 : ", res2)
 
         setText("");
         await fetchComments();

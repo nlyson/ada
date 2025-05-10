@@ -6,6 +6,7 @@ type Props = {
   isOwner: boolean;
   progress: { [promptId: string]: string };
   results: { [promptId: string]: { score: number, rubric: any, feedback: string } };
+  loadingMap: { [promptId: string]: boolean };
   onUpload: (promptId: string, file: File) => void;
 };
 
@@ -14,6 +15,7 @@ const ScavengerHuntSection: React.FC<Props> = ({
   isOwner,
   progress,
   results,
+  loadingMap,
   onUpload,
 }) => {
   const huntStart = new Date("2025-05-05");
@@ -34,12 +36,49 @@ const ScavengerHuntSection: React.FC<Props> = ({
     { promptId: "pattern", text: "A repeating pattern" },
   ];
 
+
   return (
     <div style={{ marginTop: 48 }}>
       <h2>🕵️‍♂️ Scavenger Hunt</h2>
       <p style={{ fontStyle: "italic", marginBottom: 16 }}>
         One photo per prompt — choose your shot carefully! Once submitted, it counts as your official entry for that day.
       </p>
+      {isOwner && (
+        <div
+          style={{
+            backgroundColor: "#f0faff",
+            border: "1px solid #cceeff",
+            borderRadius: 8,
+            padding: "12px 16px",
+            marginBottom: 24,
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 14 }}>
+            🔓 <strong>Unlock more perks!</strong> Premium members get:
+          </p>
+          <ul style={{ fontSize: 14, paddingLeft: 20, marginTop: 8 }}>
+            <li>🔥 Streak busts if you miss a day</li>
+            <li>🧩 Access to future special hunts</li>
+            <li>🔁 Ability to retry submissions</li>
+          </ul>
+          <a
+            href="/settings"
+            style={{
+              display: "inline-block",
+              marginTop: 8,
+              padding: "8px 16px",
+              backgroundColor: "#0070f3",
+              color: "white",
+              borderRadius: 6,
+              textDecoration: "none",
+              fontWeight: "bold",
+              fontSize: 14,
+            }}
+          >
+            Upgrade to Premium
+          </a>
+        </div>
+      )}
 
       <ScavengerHuntGrid
         username={username}
@@ -48,6 +87,7 @@ const ScavengerHuntSection: React.FC<Props> = ({
         submissions={progress}
         prompts={scavengerPrompts}
         results={results}
+        loadingMap={loadingMap}
         onUpload={onUpload}
       />
       

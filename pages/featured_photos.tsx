@@ -6,8 +6,7 @@ type FeaturedPhoto = {
   photoUrl: string;
 };
 
-const FEATURED_LAMBDA_URL =
-  "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
+const FEATURED_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
 
 const FeaturedPhotos: React.FC = () => {
   const [photos, setPhotos] = useState<FeaturedPhoto[]>([]);

@@ -175,6 +175,45 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
           </button>
         </form>
 
+        {/* 🔥 Premium Upgrade Plug */}
+        {user && (
+          <div
+            style={{
+              backgroundColor: "#fffbe6",
+              border: "1px solid #facc15",
+              borderRadius: 12,
+              padding: 16,
+              marginTop: 32,
+              textAlign: "left",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 14 }}>
+              🌟 <strong>Want the full critique?</strong> Premium users unlock:
+            </p>
+            <ul style={{ fontSize: 14, paddingLeft: 20, marginTop: 8 }}>
+              <li>✅ Full rubric scoring on every upload</li>
+              <li>📚 Access to your entire feedback history</li>
+              <li>🧠 Direct input from <strong>Jama Pantel</strong> — founder & expert photographer</li>
+            </ul>
+            <a
+              href="/settings"
+              style={{
+                display: "inline-block",
+                marginTop: 10,
+                padding: "8px 16px",
+                backgroundColor: "#16a34a",
+                color: "white",
+                borderRadius: 8,
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: 14,
+              }}
+            >
+              🚀 Upgrade to Premium
+            </a>
+          </div>
+        )}
+
         {image && (
           <img
             src={URL.createObjectURL(image)}
