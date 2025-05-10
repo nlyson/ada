@@ -189,7 +189,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         ) : (
         <div style={{ marginTop: 12 }}>
           <p style={{ fontStyle: "italic", color: "#555" }}>
-            You've already submitted a photo for this challenge.
+            You&apos;ve already submitted a photo for this challenge.
           </p>
           <div
             style={{
