@@ -11,6 +11,7 @@ type Props = {
   unlockedCount: number;
   submissions: { [promptId: string]: string }; // promptId -> URL
   prompts: Prompt[];
+  results: { [promptId: string]: { score: number; rubric: any; feedback: string } }; // ✅ ADD THIS
   onUpload: (promptId: string, file: File) => void;
 };
 
@@ -20,6 +21,7 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
   unlockedCount,
   submissions,
   prompts,
+  results,
   onUpload,
 }) => {
   return (
@@ -85,6 +87,13 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
               >
                 {prompt.text}
               </p>
+              {results[prompt.promptId] && (
+                <div style={{ marginTop: 8, fontSize: "0.85rem", textAlign: "left" }}>
+                  <strong>Score:</strong> {results[prompt.promptId].score}/100<br />
+                  <strong>Feedback:</strong><br />
+                  <span>{results[prompt.promptId].feedback}</span>
+                </div>
+              )}
             </div>
           );
         })}

@@ -5,6 +5,7 @@ type Props = {
   username: string;
   isOwner: boolean;
   progress: { [promptId: string]: string };
+  results: { [promptId: string]: { score: number, rubric: any, feedback: string } };
   onUpload: (promptId: string, file: File) => void;
 };
 
@@ -12,6 +13,7 @@ const ScavengerHuntSection: React.FC<Props> = ({
   username,
   isOwner,
   progress,
+  results,
   onUpload,
 }) => {
   const huntStart = new Date("2025-05-05");
@@ -45,8 +47,10 @@ const ScavengerHuntSection: React.FC<Props> = ({
         unlockedCount={unlockedCount}
         submissions={progress}
         prompts={scavengerPrompts}
+        results={results}
         onUpload={onUpload}
       />
+      
     </div>
   );
 };

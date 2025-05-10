@@ -23,10 +23,11 @@ const MAX_UPLOADS = 10;
 const FETCH_USER_PHOTOS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_photos";
 const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_creations";
 const GET_UNREAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_unread_comment_flags";
+const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 
 const SUBMIT_HUNT_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
 const GET_USER_HUNT_PROGRESS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get-user-hunt-progress"
-
+const GET_SCAVENGER_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_scavenger_results"
 const BUCKET_PROFILE_PATH = "public/profile-pics"
 
 const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaws.com"
@@ -62,12 +63,15 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     favoriteSubjects: "",
   });
 
+  const [scavengerResults, setScavengerResults] = useState<{ [promptId: string]: { score: number, rubric: any, feedback: string } }>({});
+
+
   const isOwner = user?.username === username;
 
   async function handleHuntUpload(promptId: string, file: File) {
     const base64 = await toBase64(file);
     await invokeLambdaIam({
-      url: SUBMIT_HUNT_PHOTO_URL, // TODO: update with real Lambda
+      url: SUBMIT_HUNT_PHOTO_URL,
       method: "POST",
       body: {
         huntId: "alphabet-hunt-2025",
@@ -79,8 +83,54 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     });
   
     // After upload, fetch the updated photo URL (simplified)
-    const url = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
-    setScavengerProgress((prev) => ({ ...prev, [promptId]: url }));
+    const imageUrl = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+    const s3Key = `public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+
+    await invokeLambdaIam({
+      url: REVIEW_PHOTO_LAMBDA_URL,
+      method: "POST",
+      body: {
+        imageUrl,
+        s3Key,
+        rubric: true,
+        username: user.username,
+        huntId: "alphabet-hunt-2025",
+        scavengerPromptId: promptId,
+      },
+    });
+
+
+    setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
+
+    // 🔍 Fetch scoring results
+    try {
+      console.log("-----------prompt id : ", promptId)
+      console.log("-------------username : ", user.username)
+      const result = await invokeLambdaIam({
+        url: GET_SCAVENGER_RESULTS_URL, // 🔧 Create this Lambda
+        method: "POST",
+        body: {
+          username: user.username,
+          promptId: promptId,
+        },
+      });
+
+      console.log("-----score : ", result?.score)
+      console.log("-----feedback : ", result?.feedback)
+
+      if (result?.score && result?.feedback) {
+        // 4️⃣ ✅ Store result locally in state
+        setScavengerResults((prev) => ({
+          ...prev,
+          [promptId]: result, // e.g., { score, rubric, feedback }
+        }));
+        alert(`✅ Scored ${result.score}/100\n\n${result.feedback}`);
+      } else {
+        console.warn("No score returned yet.");
+      }
+    } catch (err) {
+      console.error("Error fetching scavenger result:", err);
+    }
   }
 
   useEffect(() => {
@@ -312,6 +362,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         username={username}
         isOwner={isOwner}
         progress={scavengerProgress}
+        results={scavengerResults}
         onUpload={handleHuntUpload}
       />
     </div>
