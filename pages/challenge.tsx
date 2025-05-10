@@ -1,5 +1,6 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+import Link from "next/link";
 
 const SUBMIT_CHALLENGE_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit_challenge";
 const FETCH_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_results";
@@ -205,22 +206,23 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
               <br />
               <strong>Upgrade to Premium</strong> for <span style={{ color: "#228b22" }}>unlimited challenge submissions</span>!
             </p>
-            <a
-              href="/settings"
-              style={{
-                display: "inline-block",
-                marginTop: 8,
-                padding: "8px 16px",
-                backgroundColor: "#228b22",
-                color: "white",
-                borderRadius: 6,
-                textDecoration: "none",
-                fontWeight: "bold",
-                fontSize: 14,
-              }}
-            >
-              Upgrade Now
-            </a>
+            <Link href="/settings" legacyBehavior>
+              <a
+                style={{
+                  display: "inline-block",
+                  marginTop: 8,
+                  padding: "8px 16px",
+                  backgroundColor: "#228b22",
+                  color: "white",
+                  borderRadius: 6,
+                  textDecoration: "none",
+                  fontWeight: "bold",
+                  fontSize: 14,
+                }}
+              >
+                Upgrade Now
+              </a>
+            </Link>
           </div>
         </div>
         )}

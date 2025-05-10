@@ -1,5 +1,6 @@
 import React from "react";
 import { ScavengerHuntGrid } from "@/components/ScavengerHuntGrid";
+import Link from "next/link";
 
 type Props = {
   username: string;
@@ -61,22 +62,23 @@ const ScavengerHuntSection: React.FC<Props> = ({
             <li>🧩 Access to future special hunts</li>
             <li>🔁 Ability to retry submissions</li>
           </ul>
-          <a
-            href="/settings"
-            style={{
-              display: "inline-block",
-              marginTop: 8,
-              padding: "8px 16px",
-              backgroundColor: "#0070f3",
-              color: "white",
-              borderRadius: 6,
-              textDecoration: "none",
-              fontWeight: "bold",
-              fontSize: 14,
-            }}
-          >
-            Upgrade to Premium
-          </a>
+          <Link href="/settings" legacyBehavior>
+            <a
+              style={{
+                display: "inline-block",
+                marginTop: 8,
+                padding: "8px 16px",
+                backgroundColor: "#0070f3",
+                color: "white",
+                borderRadius: 6,
+                textDecoration: "none",
+                fontWeight: "bold",
+                fontSize: 14,
+              }}
+            >
+              Upgrade to Premium
+            </a>
+          </Link>
         </div>
       )}
 

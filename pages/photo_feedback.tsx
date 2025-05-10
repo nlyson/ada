@@ -2,6 +2,7 @@ import "@/lib/configureAmplify"; // ✅ this guarantees Amplify is initialized n
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam"; // ✅ already set up
+import Link from "next/link";
 
 
 const UPLOAD_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/upload_photo"
@@ -195,22 +196,23 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
               <li>📚 Access to your entire feedback history</li>
               <li>🧠 Direct input from <strong>Jama Pantel</strong> — founder & expert photographer</li>
             </ul>
-            <a
-              href="/settings"
-              style={{
-                display: "inline-block",
-                marginTop: 10,
-                padding: "8px 16px",
-                backgroundColor: "#16a34a",
-                color: "white",
-                borderRadius: 8,
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: 14,
-              }}
-            >
-              🚀 Upgrade to Premium
-            </a>
+            <Link href="/settings" legacyBehavior>
+              <a
+                style={{
+                  display: "inline-block",
+                  marginTop: 10,
+                  padding: "8px 16px",
+                  backgroundColor: "#16a34a",
+                  color: "white",
+                  borderRadius: 8,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                }}
+              >
+                🚀 Upgrade to Premium
+              </a>
+            </Link>
           </div>
         )}
 
