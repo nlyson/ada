@@ -16,6 +16,7 @@ type UserProfile = {
   displayName: string;
   aboutMe: string;
   favoriteSubjects: string;
+  accountTier?: string;
 };
 
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
@@ -371,8 +372,22 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>👤 {username}&apos;s Profile</h1>
-
+    <h1>
+      👤 {username}&apos;s Profile{" "}
+      {profile?.accountTier === "premium" && (
+        <span style={{
+          marginLeft: 8,
+          backgroundColor: "gold",
+          color: "black",
+          padding: "4px 8px",
+          borderRadius: 8,
+          fontWeight: "bold",
+          fontSize: "0.9em"
+        }}>
+          ⭐ Premium
+        </span>
+      )}
+    </h1>
 
 
       <ProfileCard
