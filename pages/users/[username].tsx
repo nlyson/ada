@@ -8,6 +8,8 @@ import UserUploads from "@/components/UserUploads";
 import ChallengeSubmissions from "@/components/ChallengeSubmissions";
 import ScavengerHuntSection from "@/components/ScavengerHuntSection";
 import ProfileDetails from "@/components/ProfileDetails";
+import { UserStatsCard } from "@/components/UserStatsCard";
+
 
 type UserProfile = {
   username: string;
@@ -23,11 +25,13 @@ const MAX_UPLOADS = 10;
 const FETCH_USER_PHOTOS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_photos";
 const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_creations";
 const GET_UNREAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_unread_comment_flags";
+const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 
 const SUBMIT_HUNT_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
 const GET_USER_HUNT_PROGRESS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get-user-hunt-progress"
-
+const GET_SCAVENGER_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_scavenger_results"
 const BUCKET_PROFILE_PATH = "public/profile-pics"
+const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_stats";
 
 const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaws.com"
 
@@ -54,6 +58,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [unreadPhotoIds, setUnreadPhotoIds] = useState<string[]>([]);
   const [scavengerProgress, setScavengerProgress] = useState<{ [promptId: string]: string }>({});
+  const [huntUploadLoading, setHuntUploadLoading] = useState<{ [promptId: string]: boolean }>({});
 
   const [editProfile, setEditProfile] = useState<UserProfile>({
     username,
@@ -62,29 +67,109 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     favoriteSubjects: "",
   });
 
+  const [scavengerResults, setScavengerResults] = useState<{ [promptId: string]: { score: number, rubric: any, feedback: string } }>({});
+
+
   const isOwner = user?.username === username;
 
-  async function handleHuntUpload(promptId: string, file: File) {
-    const base64 = await toBase64(file);
-    await invokeLambdaIam({
-      url: SUBMIT_HUNT_PHOTO_URL, // TODO: update with real Lambda
-      method: "POST",
-      body: {
-        huntId: "alphabet-hunt-2025",
-        username: user.username,
-        promptId,
-        fileContent: base64,
-        fileType: file.type,
-      },
-    });
-  
-    // After upload, fetch the updated photo URL (simplified)
-    const url = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
-    setScavengerProgress((prev) => ({ ...prev, [promptId]: url }));
+  async function fetchAllScavengerResults() {
+    try {
+      // batch‐get all prompt results for this user and hunt
+      const res = await invokeLambdaIam({
+        url: GET_SCAVENGER_RESULTS_URL,
+        method: "POST",
+        body: { 
+          username,
+          huntId: "alphabet-hunt-2025"
+        },
+      });
+      // assume res is an array: [{ promptId, score, rubric, feedback }, …]
+      const mapped: typeof scavengerResults = {};
+      for (const r of res) {
+        mapped[r.promptId] = {
+          score: r.score,
+          rubric: r.rubric,
+          feedback: r.feedback,
+        };
+      }
+      setScavengerResults(mapped);
+    } catch (err) {
+      console.error("Failed to fetch scavenger results:", err);
+    }
   }
+
+  async function handleHuntUpload(promptId: string, file: File) {
+    setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
+
+    try {
+      const base64 = await toBase64(file);
+
+      await invokeLambdaIam({
+        url: SUBMIT_HUNT_PHOTO_URL,
+        method: "POST",
+        body: {
+          huntId: "alphabet-hunt-2025",
+          username: user.username,
+          promptId,
+          fileContent: base64,
+          fileType: file.type,
+        },
+      });
+
+      const imageUrl = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+      const s3Key = `public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+
+      await invokeLambdaIam({
+        url: REVIEW_PHOTO_LAMBDA_URL,
+        method: "POST",
+        body: {
+          imageUrl,
+          s3Key,
+          rubric: true,
+          username: user.username,
+          huntId: "alphabet-hunt-2025",
+          scavengerPromptId: promptId,
+        },
+      });
+
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            recomputeScavengerHuntStats: { op: "recomputeScavengerHuntStats" },
+          },
+        },
+      });
+
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            streakDays: { op: "updateStreak" },
+          },
+        },
+      });
+
+      setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
+
+      // 💡 Fetch results after update
+      await fetchAllScavengerResults();
+    } catch (err) {
+      console.error("Upload or scoring failed:", err);
+    } finally {
+      setHuntUploadLoading((prev) => ({ ...prev, [promptId]: false }));
+    }
+  }
+
 
   useEffect(() => {
     if (!username) return;
+
+
 
     async function fetchPhotos() {
       try {
@@ -101,10 +186,9 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
     async function fetchProfilePic() {
       try {
-        const url = `${PICTURE_THIS_STORAGE_FULL_PATH}/${BUCKET_PROFILE_PATH}/${username}.jpg`
+        const url = `${PICTURE_THIS_STORAGE_FULL_PATH}/${BUCKET_PROFILE_PATH}/${username}.jpg?t=${Date.now()}`
         setProfileUrl(url);
       } catch (err){
-        console.log('--------------error during fetch pic')
         setProfileUrl("/default-avatar.png");
       }
     };
@@ -135,7 +219,14 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           body: { username },
         });
         setProfile(result);
-        setEditProfile(result ?? { username, displayName: "", aboutMe: "", favoriteSubjects: "" });
+        setEditProfile({
+          username,
+          displayName: result?.displayName || "",
+          aboutMe: result?.aboutMe || "",
+          favoriteSubjects: Array.isArray(result?.favoriteSubjects)
+            ? result.favoriteSubjects.join(", ")
+            : result?.favoriteSubjects || ""
+        });
       } catch (err) {
         console.warn("No profile found.");
         setProfile(null);
@@ -176,11 +267,13 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         }
     
         setScavengerProgress(mapped);
+        await fetchAllScavengerResults()
       } catch (err) {
         console.error("Failed to fetch scavenger hunt progress:", err);
       }
     }
 
+    fetchAllScavengerResults();
     fetchHuntProgress();
     fetchUnreadFlags();
     fetchProfile();
@@ -201,6 +294,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     setUploading(true);
     try {
       const base64 = await toBase64(file);
+
       const result = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
@@ -213,10 +307,31 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         },
       });
       setImage(null);
+
       const res = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
         body: { action: "list", username },
+      });
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            photosUploaded: { op: "increment", value: 1 }
+          }
+        }
+      });
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            streakDays: { op: "updateStreak" }
+          }
+        }
       });
       const mapped = res.items?.map((item: any) => ({ key: item.key, url: item.url })) || [];
       setUploadItems(mapped);
@@ -261,58 +376,83 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
 
       <ProfileCard
-      username={username}
-      displayName={profile?.displayName}
-      profileUrl={profileUrl}
-      isOwner={isOwner}
-      setProfileUrl={setProfileUrl}
-    />
-<ProfileDetails profile={profile} />
-
-    {isOwner && (
-      <EditProfileSection
-        editProfile={editProfile}
-        setEditProfile={setEditProfile}
-        onSave={async () => {
-          setSavingProfile(true);
-          try {
-            await invokeLambdaIam({
-              url: SET_PROFILE_URL,
-              method: "POST",
-              body: {
-                username,
-                displayName: editProfile.displayName,
-                aboutMe: editProfile.aboutMe,
-                favoriteSubjects: editProfile.favoriteSubjects
-                  ? editProfile.favoriteSubjects.split(",").map((s) => s.trim())
-                  : [],
-              },
-            });
-            setProfile(editProfile);
-          } catch (err) {
-            console.error("Error saving profile:", err);
-          } finally {
-            setSavingProfile(false);
-          }
-        }}
-        saving={savingProfile}
+        username={username}
+        displayName={profile?.displayName}
+        profileUrl={profileUrl}
+        isOwner={isOwner}
+        setProfileUrl={setProfileUrl}
       />
-    )}
-    <UserUploads
-      username={username}
-      isOwner={isOwner}
-      uploadItems={uploadItems}
-      unreadPhotoIds={unreadPhotoIds}
-      onUpload={ isOwner ? handleUpload : undefined }
-      onDelete={ isOwner ? handleDelete : undefined }
-    />
+      <ProfileDetails profile={profile} />
+      <UserStatsCard username={username} isOwner={isOwner} />
+
+      {isOwner && (
+        <EditProfileSection
+          editProfile={editProfile}
+          setEditProfile={setEditProfile}
+          onSave={async () => {
+            setSavingProfile(true);
+            try {
+              await invokeLambdaIam({
+                url: SET_PROFILE_URL,
+                method: "POST",
+                body: {
+                  username,
+                  displayName: editProfile.displayName,
+                  aboutMe: editProfile.aboutMe,
+                  favoriteSubjects: editProfile.favoriteSubjects
+                    ? editProfile.favoriteSubjects.split(",").map((s) => s.trim())
+                    : [],
+                },
+              });
+              setProfile(editProfile);
+
+              // 🔥 Compute completeness after save
+              const filled = [
+                editProfile.displayName,
+                editProfile.aboutMe,
+                editProfile.favoriteSubjects,
+                profileUrl !== "/default-avatar.png",
+              ];
+              const completeness = Math.round((filled.filter(Boolean).length / 4) * 100);
+
+
+              await invokeLambdaIam({
+                url: UPDATE_USER_STATS_LAMBDA_URL,
+                method: "POST",
+                body: {
+                  username,
+                  updates: {
+                    profileCompleteness: { op: "set", value: completeness },
+                  },
+                },
+              });
+            } catch (err) {
+              console.error("Error saving profile:", err);
+            } finally {
+              setSavingProfile(false);
+            }
+          }}
+          saving={savingProfile}
+        />
+      )}
+      <UserUploads
+        username={username}
+        viewerUsername={user.username}
+        isOwner={isOwner}
+        uploadItems={uploadItems}
+        unreadPhotoIds={unreadPhotoIds}
+        onUpload={ isOwner ? handleUpload : undefined }
+        onDelete={ isOwner ? handleDelete : undefined }
+      />
       <ChallengeSubmissions photos={photos} loading={loading} />
 
       <ScavengerHuntSection
         username={username}
         isOwner={isOwner}
         progress={scavengerProgress}
+        results={scavengerResults}
         onUpload={handleHuntUpload}
+        loadingMap={huntUploadLoading}
       />
     </div>
 

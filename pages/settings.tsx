@@ -43,6 +43,20 @@ const Settings: React.FC<AppProps> = ({ user }) => {
 
   const currentTier = profile?.tier || "Free";
 
+  const thStyle: React.CSSProperties = {
+    padding: "12px",
+    textAlign: "left",
+    fontWeight: "bold",
+    fontSize: "1rem",
+    borderBottom: "1px solid #ddd",
+  };
+
+  const tdStyle: React.CSSProperties = {
+    padding: "12px",
+    borderBottom: "1px solid #eee",
+    fontSize: "0.95rem",
+  };
+
   return (
     <div style={{ padding: 24 }}>
       <h1>⚙️ Account Settings</h1>
@@ -69,12 +83,52 @@ const Settings: React.FC<AppProps> = ({ user }) => {
               🚀 Upgrade to Premium
             </button>
           ) : (
-            <p style={{ color: "green", marginTop: 16 }}>✅ You are a Premium user. Thank you!</p>
+            <p style={{ color: "green", marginTop: 16 }}>
+              ✅ You are a Premium user. Thank you!
+            </p>
           )}
+          <h2 style={{ marginTop: 32 }}>🧮 Feature Comparison</h2>
+          <table style={{
+            borderCollapse: "collapse",
+            width: "100%",
+            marginTop: 16,
+            background: "#fff",
+            borderRadius: 8,
+            overflow: "hidden",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+          }}>
+            <thead>
+              <tr style={{ backgroundColor: "#f3f4f6" }}>
+                <th style={thStyle}></th>
+                <th style={thStyle}>Free</th>
+                <th style={thStyle}>Premium</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Challenge uploads", "1 per challenge", "✅ Unlimited"],
+                ["AI feedback", "✅ Basic", "✅ Full rubric + history"],
+                ["Scavenger hunt", "✅ Base prompts", "✅ Bonus hunts + boosts"],
+                ["Photo uploads", "✅ Up to 10", "✅ Up to 100+"],
+                ["User stats", "✅ Basic", "✅ Advanced trends & scoring"],
+                ["Profile customization", "✅ Avatar", "✅ Themes + cover photo"],
+                ["Comment threads", "✅ Yes", "✅ Yes"],
+                ["Feedback analytics", "❌", "✅ View AI feedback breakdown"],
+                ["Monthly themed events", "❌", "✅ Access special content"],
+              ].map(([feature, free, premium]) => (
+                <tr key={feature}>
+                  <td style={{ ...tdStyle, fontWeight: "bold" }}>{feature}</td>
+                  <td style={tdStyle}>{free}</td>
+                  <td style={tdStyle}>{premium}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </>
       )}
     </div>
   );
+
 };
 
 export default Settings;

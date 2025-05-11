@@ -1,9 +1,11 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+import Link from "next/link";
 
 const SUBMIT_CHALLENGE_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit_challenge";
 const FETCH_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_results";
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
+const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_stats";
 
 type AppProps = {
   signOut: () => void;
@@ -20,6 +22,10 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   const [results, setResults] = useState<
     { score: number; rubric: Record<string, number>; feedback: string; imageUrl: string }[]
   >([]);
+
+  useEffect(() => {
+    handleFetchResults();
+  }, []);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setImage(e.target.files?.[0] || null);
@@ -59,6 +65,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         },
       });
 
+
       setStatus(result.message || result.error);
       setImage(null);
       setCaption("");
@@ -76,6 +83,45 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
           },
         });
       }
+
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            challengesCompleted: {
+              op: "increment",
+              value: 1,
+            },
+          },
+        },
+      });
+
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            recomputeChallengeStats: { op: "recomputeChallengeStats" }
+          }
+        }
+      });
+
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            streakDays: { op: "updateStreak" }
+          }
+        }
+      });
+
+      await handleFetchResults(); // 🔄 refresh results after scoring
+
     } catch (err) {
       console.error(err);
       setStatus("Submission failed.");
@@ -105,6 +151,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
     }
   };
 
+  const hasSubmitted = results.length > 0;
   return (
     <div style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", backgroundColor: "#fffaf0", minHeight: "100vh" }}>
       <h1 style={{ textAlign: "center", marginBottom: "1.5rem" }}>
@@ -112,45 +159,73 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       </h1>
 
       <section style={{ marginBottom: "2rem" }}>
-        <input type="file" accept="image/*" onChange={handleChange} />
-        <br />
-        <input
-          type="text"
-          placeholder="Caption (optional)"
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          style={{ marginTop: 12, padding: 8, width: "100%", maxWidth: 400 }}
-        />
-        <div style={{ marginTop: 16, display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          <button
-            onClick={handleSubmit}
-            disabled={!image || loading}
+        {!hasSubmitted ? (
+          <>
+            <input type="file" accept="image/*" onChange={handleChange} />
+            <br />
+            <input
+              type="text"
+              placeholder="Caption (optional)"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              style={{ marginTop: 12, padding: 8, width: "100%", maxWidth: 400 }}
+            />
+            <div style={{ marginTop: 16, display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+              <button
+                onClick={handleSubmit}
+                disabled={!image || loading}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#228b22",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                {loading ? "Submitting..." : "Submit to Challenge"}
+              </button>
+            </div>
+          </>
+        ) : (
+        <div style={{ marginTop: 12 }}>
+          <p style={{ fontStyle: "italic", color: "#555" }}>
+            You&apos;ve already submitted a photo for this challenge.
+          </p>
+          <div
             style={{
-              padding: "10px 20px",
-              backgroundColor: "#228b22",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: loading ? "not-allowed" : "pointer",
+              marginTop: 12,
+              backgroundColor: "#fff0f0",
+              padding: "12px 16px",
+              borderRadius: 8,
+              border: "1px solid #ffcccc",
             }}
           >
-            {loading ? "Submitting..." : "Submit to Challenge"}
-          </button>
-          <button
-            onClick={handleFetchResults}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#1e90ff",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-            }}
-          >
-            View Results
-          </button>
+            <p style={{ margin: 0, fontSize: 14 }}>
+              Want to try again with a better photo? 🚀
+              <br />
+              <strong>Upgrade to Premium</strong> for <span style={{ color: "#228b22" }}>unlimited challenge submissions</span>!
+            </p>
+            <Link href="/settings" legacyBehavior>
+              <a
+                style={{
+                  display: "inline-block",
+                  marginTop: 8,
+                  padding: "8px 16px",
+                  backgroundColor: "#228b22",
+                  color: "white",
+                  borderRadius: 6,
+                  textDecoration: "none",
+                  fontWeight: "bold",
+                  fontSize: 14,
+                }}
+              >
+                Upgrade Now
+              </a>
+            </Link>
+          </div>
         </div>
-        {status && <p style={{ marginTop: 12, color: "#444" }}>{status}</p>}
+        )}
       </section>
 
       <section style={{ backgroundColor: "#f0f8ff", borderRadius: 8, padding: 16 }}>
@@ -169,31 +244,29 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       {results.length > 0 && (
         <section style={{ marginTop: 32 }}>
           <h2>📊 Your Challenge Results</h2>
-          {results.map((res, index) => (
-            <div
-              key={index}
-              style={{
-                marginTop: 20,
-                padding: 16,
-                backgroundColor: "#f5fff5",
-                borderRadius: 8,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-              }}
-            >
-              <img
-                src={res.imageUrl}
-                alt="Challenge submission"
-                style={{ width: "100%", maxWidth: 300, borderRadius: 8, marginBottom: 12 }}
-              />
-              <p><strong>Score:</strong> {res.score}/100</p>
-              <ul style={{ paddingLeft: 20 }}>
-                {Object.entries(res.rubric).map(([key, val]) => (
-                  <li key={key}>{key}: {val}/25</li>
-                ))}
-              </ul>
-              <p style={{ marginTop: 8 }}><strong>Feedback:</strong> {res.feedback}</p>
-            </div>
-          ))}
+          <div
+            style={{
+              marginTop: 20,
+              padding: 16,
+              backgroundColor: "#f5fff5",
+              borderRadius: 8,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+              textAlign: "center",
+            }}
+          >
+            <img
+              src={results[0].imageUrl}
+              alt="Your submission"
+              style={{ width: "100%", maxWidth: 400, borderRadius: 8, marginBottom: 12 }}
+            />
+            <p><strong>Score:</strong> {results[0].score}/100</p>
+            <ul style={{ paddingLeft: 20, textAlign: "left", display: "inline-block" }}>
+              {Object.entries(results[0].rubric).map(([key, val]) => (
+                <li key={key}>{key}: {val}/25</li>
+              ))}
+            </ul>
+            <p style={{ marginTop: 8 }}><strong>Feedback:</strong> {results[0].feedback}</p>
+          </div>
         </section>
       )}
     </div>

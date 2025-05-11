@@ -1,7 +1,7 @@
 import React from "react";
-import { uploadData, getUrl } from "aws-amplify/storage";
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
-const BUCKET_PROFILE_PATH = "public/profile-pics";
+const GET_PROFILE_UPLOAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_profile_upload_url";
 
 type Props = {
     username: string;
@@ -12,23 +12,49 @@ type Props = {
   };
 
 const ProfileCard: React.FC<Props> = ({ username, profileUrl, displayName, isOwner, setProfileUrl }) => {
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    const file = e.target.files[0];
+  
+const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (!e.target.files?.length) return;
+  const file = e.target.files[0];
 
-    await uploadData({
-      path: `${BUCKET_PROFILE_PATH}/${username}.jpg`,
-      data: file,
-      options: { contentType: file.type, bucket: "picture-this-storage" },
+  try {
+    const response = await invokeLambdaIam({
+      url: GET_PROFILE_UPLOAD_URL,
+      method: "POST",
+      body: {
+        username,
+        fileType: file.type,
+      },
     });
 
-    const result = await getUrl({
-      path: `${BUCKET_PROFILE_PATH}/${username}.jpg`,
-      options: { bucket: "picture-this-storage" },
+    // 🔥 Check if body needs parsing
+    const { uploadUrl, key } = typeof response === "string"
+      ? JSON.parse(response)
+      : response;
+
+    console.log("📸 Uploading to:", uploadUrl);
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type,
+      },
+      body: file,
     });
 
-    setProfileUrl(result.url.toString());
-  };
+    if (!uploadRes.ok) {
+      throw new Error("Upload failed");
+    }
+
+    const publicUrl = `https://picture-this-storage.s3.amazonaws.com/${key}?t=${Date.now()}`;
+    console.log("✅ Uploaded to:", publicUrl);
+    setProfileUrl(publicUrl);
+  } catch (err) {
+    console.error("❌ Profile pic upload error:", err);
+  }
+};
+
+
 
   return (
     <div style={{

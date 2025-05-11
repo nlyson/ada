@@ -8,6 +8,7 @@ type UploadItem = {
 
 type Props = {
     username: string;
+    viewerUsername: string;
     isOwner: boolean;
     uploadItems: UploadItem[];
     unreadPhotoIds: string[];
@@ -20,6 +21,7 @@ const MAX_UPLOADS = 10;
 const UserUploads: React.FC<Props> = ({
   isOwner,
   username,
+  viewerUsername,
   uploadItems,
   unreadPhotoIds,
   onUpload,
@@ -109,7 +111,7 @@ const UserUploads: React.FC<Props> = ({
                     </span>
                   )}
 
-                  <CommentThread photoId={key} currentUser={key.split("/")[1]} />
+                  <CommentThread photoId={key} currentUser={viewerUsername} />
             {onDelete && (
                   <button
                     onClick={() => {
