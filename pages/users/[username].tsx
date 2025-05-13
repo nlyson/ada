@@ -329,56 +329,66 @@ async function handleHuntUpload(promptId: string, file: File) {
 
   async function handleUpload(file: File) {
     if (!file) return;
-  
+
     if (uploadItems.length >= MAX_UPLOADS) {
       alert("Upload limit reached.");
       return;
     }
 
     setUploading(true);
-    try {
-      const base64 = await toBase64(file);
 
-      const result = await invokeLambdaIam({
+    try {
+      const s3Key = `user-creations/${user.username}/${Date.now()}-${file.name}`;
+
+      // Upload to S3 using helper
+      await uploadToCustomBucket(file, s3Key);
+
+      // Trigger backend to update DB entries
+      await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
         body: {
-          action: "upload",
+          action: "register",
           username: user.username,
           fileName: file.name,
-          fileContent: base64,
-          fileType: file.type,
+          s3Key,
         },
       });
-      setImage(null);
 
+      // Re-fetch updated creations list
       const res = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
         body: { action: "list", username },
       });
-      await invokeLambdaIam({
-        url: UPDATE_USER_STATS_LAMBDA_URL,
-        method: "POST",
-        body: {
-          username: user.username,
-          updates: {
-            photosUploaded: { op: "increment", value: 1 }
-          }
-        }
-      });
-      await invokeLambdaIam({
-        url: UPDATE_USER_STATS_LAMBDA_URL,
-        method: "POST",
-        body: {
-          username: user.username,
-          updates: {
-            streakDays: { op: "updateStreak" }
-          }
-        }
-      });
+
       const mapped = res.items?.map((item: any) => ({ key: item.key, url: item.url })) || [];
       setUploadItems(mapped);
+
+      // Stats
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            photosUploaded: { op: "increment", value: 1 },
+          },
+        },
+      });
+
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            streakDays: { op: "updateStreak" },
+          },
+        },
+      });
+
+      setImage(null);
     } catch (err) {
       console.error("Upload error:", err);
     } finally {
