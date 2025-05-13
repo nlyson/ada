@@ -9,6 +9,8 @@ import ChallengeSubmissions from "@/components/ChallengeSubmissions";
 import ScavengerHuntSection from "@/components/ScavengerHuntSection";
 import ProfileDetails from "@/components/ProfileDetails";
 import { UserStatsCard } from "@/components/UserStatsCard";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { fetchAuthSession } from "aws-amplify/auth";
 
 
 type UserProfile = {
@@ -73,6 +75,42 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
   const isOwner = user?.username === username;
 
+
+  async function uploadToCustomBucket(file: File, s3Key: string) {
+    // Step 1: Upload to S3
+    const session = await fetchAuthSession();
+    const credentials = session.credentials;
+
+    if (!credentials) {
+      throw new Error("Amplify credentials not found");
+    }
+
+    const s3 = new S3Client({
+      region: "us-east-1",
+      credentials: {
+        accessKeyId: credentials.accessKeyId,
+        secretAccessKey: credentials.secretAccessKey,
+        sessionToken: credentials.sessionToken,
+      },
+    });
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+console.log("🟡 Uploading to S3:", s3Key);
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: "picture-this-storage",
+        Key: s3Key,
+        Body: uint8Array,
+        ContentType: file.type,
+      })
+    );
+
+  console.log("✅ Upload complete:", s3Key);
+
+  }
+
+
   async function fetchAllScavengerResults() {
     try {
       // batch‐get all prompt results for this user and hunt
@@ -99,72 +137,77 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     }
   }
 
-  async function handleHuntUpload(promptId: string, file: File) {
-    setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
 
-    try {
-      const base64 = await toBase64(file);
+async function handleHuntUpload(promptId: string, file: File) {
+  setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
 
-      await invokeLambdaIam({
-        url: SUBMIT_HUNT_PHOTO_URL,
-        method: "POST",
-        body: {
-          huntId: "alphabet-hunt-2025",
-          username: user.username,
-          promptId,
-          fileContent: base64,
-          fileType: file.type,
+  try {
+    // Step 1: Upload to S3
+    const s3Key = `public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+
+    await uploadToCustomBucket(file, s3Key);
+
+
+    const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${s3Key}`;
+
+    // Step 2: Call Lambda with just the s3Key
+    await invokeLambdaIam({
+      url: SUBMIT_HUNT_PHOTO_URL,
+      method: "POST",
+      body: {
+        huntId: "alphabet-hunt-2025",
+        username: user.username,
+        promptId,
+        s3Key,
+      },
+    });
+
+    // Step 3: Review / score the photo
+    await invokeLambdaIam({
+      url: REVIEW_PHOTO_LAMBDA_URL,
+      method: "POST",
+      body: {
+        imageUrl,
+        s3Key,
+        rubric: true,
+        username: user.username,
+        huntId: "alphabet-hunt-2025",
+        scavengerPromptId: promptId,
+      },
+    });
+
+    // Step 4: Update stats
+    await invokeLambdaIam({
+      url: UPDATE_USER_STATS_LAMBDA_URL,
+      method: "POST",
+      body: {
+        username: user.username,
+        updates: {
+          recomputeScavengerHuntStats: { op: "recomputeScavengerHuntStats" },
         },
-      });
+      },
+    });
 
-      const imageUrl = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
-      const s3Key = `public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
-
-      await invokeLambdaIam({
-        url: REVIEW_PHOTO_LAMBDA_URL,
-        method: "POST",
-        body: {
-          imageUrl,
-          s3Key,
-          rubric: true,
-          username: user.username,
-          huntId: "alphabet-hunt-2025",
-          scavengerPromptId: promptId,
+    await invokeLambdaIam({
+      url: UPDATE_USER_STATS_LAMBDA_URL,
+      method: "POST",
+      body: {
+        username: user.username,
+        updates: {
+          streakDays: { op: "updateStreak" },
         },
-      });
+      },
+    });
 
-      await invokeLambdaIam({
-        url: UPDATE_USER_STATS_LAMBDA_URL,
-        method: "POST",
-        body: {
-          username: user.username,
-          updates: {
-            recomputeScavengerHuntStats: { op: "recomputeScavengerHuntStats" },
-          },
-        },
-      });
+    setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
 
-      await invokeLambdaIam({
-        url: UPDATE_USER_STATS_LAMBDA_URL,
-        method: "POST",
-        body: {
-          username: user.username,
-          updates: {
-            streakDays: { op: "updateStreak" },
-          },
-        },
-      });
-
-      setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
-
-      // 💡 Fetch results after update
-      await fetchAllScavengerResults();
-    } catch (err) {
-      console.error("Upload or scoring failed:", err);
-    } finally {
-      setHuntUploadLoading((prev) => ({ ...prev, [promptId]: false }));
-    }
+    await fetchAllScavengerResults();
+  } catch (err) {
+    console.error("Upload or scoring failed:", err);
+  } finally {
+    setHuntUploadLoading((prev) => ({ ...prev, [promptId]: false }));
   }
+}
 
 
   useEffect(() => {
