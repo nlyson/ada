@@ -103,7 +103,7 @@ const UserUploads: React.FC<Props> = ({
               }}
             >
               <p style={{ margin: 0, fontSize: 14 }}>
-                You've reached your upload limit. 🚫
+                You&apos;ve reached your upload limit. 🚫
                 <br />
                 <strong>Upgrade to Premium</strong> for up to{" "}
                 <span style={{ color: "#228b22" }}>100 photo uploads</span> in your gallery!
