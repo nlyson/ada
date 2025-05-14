@@ -19,7 +19,10 @@ type UserProfile = {
   aboutMe: string;
   favoriteSubjects: string;
   accountTier?: string;
+  scavengerRetries?: number;
 };
+
+const TEST_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/test_lambda";
 
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
 const SET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/set_user_profile";
@@ -30,13 +33,13 @@ const UPDATE_USER_CREATIONS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east
 const GET_UNREAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_unread_comment_flags";
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 
-const SUBMIT_HUNT_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
-const GET_USER_HUNT_PROGRESS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get-user-hunt-progress"
-const GET_SCAVENGER_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_scavenger_results"
-const BUCKET_PROFILE_PATH = "public/profile-pics"
+const SUBMIT_HUNT_PHOTO_URL = TEST_LAMBDA_URL; // "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
+const GET_USER_HUNT_PROGRESS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get-user-hunt-progress";
+const GET_SCAVENGER_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_scavenger_results";
+const BUCKET_PROFILE_PATH = "public/profile-pics";
 const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_stats";
 
-const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaws.com"
+const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaws.com";
 
 type UploadItem = {
   key: string;
@@ -514,6 +517,7 @@ async function handleHuntUpload(promptId: string, file: File) {
         onUpload={handleHuntUpload}
         loadingMap={huntUploadLoading}
         accountTier={profile?.accountTier}
+        scavengerRetries={profile?.scavengerRetries}
       />
     </div>
 

@@ -10,6 +10,7 @@ type Props = {
   loadingMap: { [promptId: string]: boolean };
   onUpload: (promptId: string, file: File) => void;
   accountTier?: string;
+  scavengerRetries?: number;
 };
 
 const ScavengerHuntSection: React.FC<Props> = ({
@@ -19,7 +20,8 @@ const ScavengerHuntSection: React.FC<Props> = ({
   results,
   loadingMap,
   onUpload,
-  accountTier
+  accountTier,
+  scavengerRetries
 }) => {
   const huntStart = new Date("2025-05-05");
   const today = new Date();
@@ -94,6 +96,7 @@ const ScavengerHuntSection: React.FC<Props> = ({
         loadingMap={loadingMap}
         onUpload={onUpload}
         accountTier={accountTier}
+        scavengerRetries={scavengerRetries}
       />
       
     </div>
