@@ -414,15 +414,6 @@ async function handleHuntUpload(promptId: string, file: File) {
     }
   }
 
-  function toBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve((reader.result as string).split(",")[1]);
-      reader.onerror = reject;
-    });
-  }
-
   return (
     <div style={{ padding: 24 }}>
     <h1>
@@ -511,6 +502,7 @@ async function handleHuntUpload(promptId: string, file: File) {
         unreadPhotoIds={unreadPhotoIds}
         onUpload={ isOwner ? handleUpload : undefined }
         onDelete={ isOwner ? handleDelete : undefined }
+        accountTier={profile?.accountTier}
       />
       <ChallengeSubmissions photos={photos} loading={loading} />
 
@@ -521,6 +513,7 @@ async function handleHuntUpload(promptId: string, file: File) {
         results={scavengerResults}
         onUpload={handleHuntUpload}
         loadingMap={huntUploadLoading}
+        accountTier={profile?.accountTier}
       />
     </div>
 

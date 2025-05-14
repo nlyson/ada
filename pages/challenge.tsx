@@ -22,8 +22,25 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   const [results, setResults] = useState<
     { score: number; rubric: Record<string, number>; feedback: string; imageUrl: string }[]
   >([]);
+  const [accountTier, setAccountTier] = useState<string>("free");
+
+  const submissionCount = results.length;
 
   useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const result = await invokeLambdaIam({
+          url: "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile",
+          method: "POST",
+          body: { username: user.username },
+        });
+        setAccountTier(result.accountTier || "free");
+      } catch (err) {
+        console.error("Failed to fetch user profile:", err);
+      }
+    }
+
+    fetchProfile();
     handleFetchResults();
   }, []);
 
@@ -42,6 +59,19 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   const handleSubmit = async () => {
     if (!image) {
       alert("Please select an image.");
+      return;
+    }
+    const maxSizeMB = accountTier === "premium" ? 50 : 2;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+    if (image.size > maxSizeBytes) {
+      alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
+      return;
+    }
+    const maxRetries = accountTier === "premium" ? 100 : 1;
+
+    if (submissionCount >= maxRetries) {
+      alert(`You’ve reached the maximum number of submissions for this challenge.`);
       return;
     }
 
@@ -152,6 +182,8 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   };
 
   const hasSubmitted = results.length > 0;
+  console.log("Account tier", accountTier);
+
   return (
     <div style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", backgroundColor: "#fffaf0", minHeight: "100vh" }}>
       <h1 style={{ textAlign: "center", marginBottom: "1.5rem" }}>
@@ -159,7 +191,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       </h1>
 
       <section style={{ marginBottom: "2rem" }}>
-        {!hasSubmitted ? (
+        {submissionCount < (accountTier === "premium" ? 100 : 1) ? (
           <>
             <input type="file" accept="image/*" onChange={handleChange} />
             <br />
@@ -170,6 +202,9 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
               onChange={(e) => setCaption(e.target.value)}
               style={{ marginTop: 12, padding: 8, width: "100%", maxWidth: 400 }}
             />
+            <p style={{ fontSize: "0.85rem", color: "#666", marginTop: 4 }}>
+              Max file size: {accountTier === "premium" ? "50MB" : "2MB"}
+            </p>
             <div style={{ marginTop: 16, display: "flex", gap: "1rem", flexWrap: "wrap" }}>
               <button
                 onClick={handleSubmit}
@@ -201,11 +236,25 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
               border: "1px solid #ffcccc",
             }}
           >
-            <p style={{ margin: 0, fontSize: 14 }}>
-              Want to try again with a better photo? 🚀
-              <br />
-              <strong>Upgrade to Premium</strong> for <span style={{ color: "#228b22" }}>unlimited challenge submissions</span>!
-            </p>
+          {accountTier !== "premium" && hasSubmitted && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  backgroundColor: "#fff0f0",
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #ffcccc",
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  Want to try again with a better photo? 🚀
+                  <br />
+                  <strong>Upgrade to Premium</strong> for{" "}
+                  <span style={{ color: "#228b22" }}>unlimited challenge submissions</span>!
+                </p>
+              </div>
+            </div>
+          )}
             <Link href="/settings" legacyBehavior>
               <a
                 style={{

@@ -14,6 +14,7 @@ type Props = {
   results: { [promptId: string]: { score: number; rubric: any; feedback: string } };
   loadingMap: { [promptId: string]: boolean };
   onUpload: (promptId: string, file: File) => void;
+  accountTier?: string;
 };
 
 export const ScavengerHuntGrid: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
   results,
   loadingMap,
   onUpload,
+  accountTier
 }) => {
   const [openFeedback, setOpenFeedback] = useState<string | null>(null);
 
@@ -73,18 +75,31 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
                   }}
                 />
               ) : isOwner && isUnlocked ? (
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onUpload(prompt.promptId, file);
-                  }}
-                />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  const maxSizeMB = accountTier === "premium" ? 50 : 2;
+                  const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+                  if (file.size > maxSizeBytes) {
+                    alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
+                    return;
+                  }
+
+                  onUpload(prompt.promptId, file);
+                }}
+              />
+              
               ) : (
                 <p>🔒 Locked</p>
               )}
-
+              <p style={{ fontSize: "0.75rem", color: "#666", marginTop: 4 }}>
+                Max size: {accountTier === "premium" ? "50MB" : "2MB"}
+              </p>
               <p
                 style={{
                   fontSize: "0.85rem",
