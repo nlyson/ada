@@ -4,6 +4,7 @@ import { CommentThread } from "@/components/CommentThread";
 type UploadItem = {
   key: string;
   url: string;
+  caption?:string;
 };
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
     isOwner: boolean;
     uploadItems: UploadItem[];
     unreadPhotoIds: string[];
-    onUpload?: (file: File) => void;   // ✅ make optional
+    onUpload?: (file: File, caption: string) => void;
     onDelete?: (key: string) => void;  // ✅ make optional
     accountTier?: string;
   };
@@ -34,6 +35,7 @@ const UserUploads: React.FC<Props> = ({
   const uploadLimit = accountTier === "premium" ? 100 : 5;
   const maxSizeMB = accountTier === "premium" ? 50 : 2;
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
+  const [caption, setCaption] = useState("");
 
   const handleUploadClick = async () => {
     if (!image) return;
@@ -41,11 +43,13 @@ const UserUploads: React.FC<Props> = ({
       alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
       return;
     }
+
     setUploading(true);
     if (onUpload) {
-        await onUpload(image);
-    }    
+      await onUpload(image, caption); // ✅ pass caption
+    }
     setImage(null);
+    setCaption(""); // ✅ reset caption after upload
     setUploading(false);
   };
 
@@ -60,7 +64,7 @@ const UserUploads: React.FC<Props> = ({
           : `A glimpse into ${username}'s visual world.`}
       </p>
       {onUpload && (
-        <>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", marginBottom: 16 }}>
           <input
             type="file"
             accept="image/*"
@@ -70,7 +74,23 @@ const UserUploads: React.FC<Props> = ({
             disabled={uploadItems.length >= uploadLimit}
             style={{ marginTop: 8, marginBottom: 8 }}
           />
-          <p style={{ fontSize: "0.85rem", color: "#888", marginTop: 4 }}>
+
+          <input
+            type="text"
+            placeholder="Enter a caption for this photo"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            style={{
+              marginBottom: 8,
+              padding: 8,
+              width: "100%",
+              maxWidth: 400,
+              borderRadius: 4,
+              border: "1px solid #ccc",
+            }}
+          />
+
+          <p style={{ fontSize: "0.85rem", color: "#888", marginTop: 0, marginBottom: 8 }}>
             Max file size: {maxSizeMB} MB ({accountTier === "premium" ? "Premium user" : "Free user"})
           </p>
 
@@ -110,12 +130,13 @@ const UserUploads: React.FC<Props> = ({
               </p>
             </div>
           )}
-        </>
+        </div>
       )}
+
       {uploadItems.length > 0 && (
         <>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-            {uploadItems.map(({ key, url }) => {
+            {uploadItems.map(({ key, url, caption }) => {
               const hasUnread = unreadPhotoIds.includes(key);
               return (
                 <div
@@ -159,6 +180,18 @@ const UserUploads: React.FC<Props> = ({
                   )}
 
                   <CommentThread photoId={key} currentUser={viewerUsername} />
+                  {caption && (
+                  <p style={{
+                    fontSize: "0.85rem",
+                    fontStyle: "italic",
+                    color: "#555",
+                    marginTop: 8,
+                    textAlign: "center",
+                    wordBreak: "break-word"
+                  }}>
+                    {caption}
+                  </p>
+                )}
             {onDelete && (
                   <button
                     onClick={() => {

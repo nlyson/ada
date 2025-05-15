@@ -44,6 +44,7 @@ const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaw
 type UploadItem = {
   key: string;
   url: string;
+  caption?: string;
 };
 
 type AppProps = {
@@ -98,7 +99,6 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     });
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-console.log("🟡 Uploading to S3:", s3Key);
 
     await s3.send(
       new PutObjectCommand({
@@ -108,9 +108,6 @@ console.log("🟡 Uploading to S3:", s3Key);
         ContentType: file.type,
       })
     );
-
-  console.log("✅ Upload complete:", s3Key);
-
   }
 
 
@@ -251,7 +248,11 @@ async function handleHuntUpload(promptId: string, file: File) {
           },
         });
 
-        const mapped = res.items?.map((item: any) => ({ key: item.key, url: item.url })) || [];
+        const mapped = res.items?.map((item: any) => ({
+          key: item.key,
+          url: item.url,
+          caption: item.caption, // ✅ keep the caption
+        })) || [];
         setUploadItems(mapped);
       } catch (err) {
         console.error("Error fetching creations:", err);
@@ -330,7 +331,7 @@ async function handleHuntUpload(promptId: string, file: File) {
     setLoading(false);
   }, [username]);
 
-  async function handleUpload(file: File) {
+  async function handleUpload(file: File, caption: string) {
     if (!file) return;
 
     if (uploadItems.length >= MAX_UPLOADS) {
@@ -342,6 +343,11 @@ async function handleHuntUpload(promptId: string, file: File) {
 
     try {
       const s3Key = `user-creations/${user.username}/${Date.now()}-${file.name}`;
+
+
+      if (!caption || caption.trim().length === 0) {
+        caption = "(Untitled)";
+      }
 
       // Upload to S3 using helper
       await uploadToCustomBucket(file, s3Key);
@@ -355,6 +361,7 @@ async function handleHuntUpload(promptId: string, file: File) {
           username: user.username,
           fileName: file.name,
           s3Key,
+          caption
         },
       });
 
@@ -365,7 +372,11 @@ async function handleHuntUpload(promptId: string, file: File) {
         body: { action: "list", username },
       });
 
-      const mapped = res.items?.map((item: any) => ({ key: item.key, url: item.url })) || [];
+      const mapped = res.items?.map((item: any) => ({
+        key: item.key,
+        url: item.url,
+        caption: item.caption,
+      })) || [];
       setUploadItems(mapped);
 
       // Stats
