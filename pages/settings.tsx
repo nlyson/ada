@@ -89,7 +89,7 @@ const Settings: React.FC<AppProps> = ({ user }) => {
             </div>
           ) : (
             <p style={{ color: "green", marginTop: 16 }}>
-              ✅ You're a Premium user. Thank you for supporting Photo Mentor!
+              ✅ You&apos;re a Premium user. Thank you for supporting Photo Mentor!
             </p>
           )}
 
