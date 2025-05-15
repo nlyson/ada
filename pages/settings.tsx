@@ -1,4 +1,3 @@
-// pages/settings.tsx
 import React, { useEffect, useState } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
@@ -41,7 +40,7 @@ const Settings: React.FC<AppProps> = ({ user }) => {
     fetchProfile();
   }, [user.username]);
 
-  const currentTier = profile?.tier || "Free";
+  const currentTier = profile?.tier?.toLowerCase() === "premium" ? "Premium" : "Free";
 
   const thStyle: React.CSSProperties = {
     padding: "12px",
@@ -58,7 +57,7 @@ const Settings: React.FC<AppProps> = ({ user }) => {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
       <h1>⚙️ Account Settings</h1>
       {loading ? (
         <p>Loading...</p>
@@ -68,26 +67,33 @@ const Settings: React.FC<AppProps> = ({ user }) => {
           <p><strong>Current Tier:</strong> {currentTier}</p>
 
           {currentTier === "Free" ? (
-            <button
-              onClick={() => alert("Upgrade coming soon!")}
-              style={{
-                marginTop: 16,
-                padding: "10px 20px",
-                backgroundColor: "#0070f3",
-                color: "white",
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-              }}
-            >
-              🚀 Upgrade to Premium
-            </button>
+            <div style={{ marginTop: 16 }}>
+              <p style={{ marginBottom: 8 }}>
+                🚀 <strong>Upgrade to Premium</strong> and unlock enhanced features for just
+                <span style={{ color: "#0070f3", fontWeight: "bold" }}> $7.99/month</span>.
+              </p>
+              <button
+                onClick={() => alert("Upgrade flow coming soon")}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#0070f3",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Upgrade Now
+              </button>
+            </div>
           ) : (
             <p style={{ color: "green", marginTop: 16 }}>
-              ✅ You are a Premium user. Thank you!
+              ✅ You're a Premium user. Thank you for supporting Photo Mentor!
             </p>
           )}
-          <h2 style={{ marginTop: 32 }}>🧮 Feature Comparison</h2>
+
+          <h2 style={{ marginTop: 40 }}>💡 Feature Comparison</h2>
           <table style={{
             borderCollapse: "collapse",
             width: "100%",
@@ -107,16 +113,16 @@ const Settings: React.FC<AppProps> = ({ user }) => {
             <tbody>
               {[
                 ["Challenge uploads", "1 per challenge", "✅ Unlimited"],
-                ["AI feedback", "✅ Basic", "✅ Full rubric + history"],
-                ["Scavenger hunt", "✅ Base prompts", "✅ Bonus hunts + boosts"],
-                ["Photo uploads", "✅ Up to 10", "✅ Up to 100+"],
-                ["User stats", "✅ Basic", "✅ Advanced trends & scoring"],
-                ["Profile customization", "✅ Avatar", "✅ Themes + cover photo"],
-                ["Comment threads", "✅ Yes", "✅ Yes"],
-                ["Feedback analytics", "❌", "✅ View AI feedback breakdown"],
-                ["Monthly themed events", "❌", "✅ Access special content"],
+                ["AI feedback", "✅ Basic", "✅ Full rubric + retry tips"],
+                ["Scavenger hunt", "✅ Daily prompt", "✅ Retry + Bonus hunts"],
+                ["Photo uploads", "✅ Up to 10", "✅ Up to 100"],
+                ["User stats", "✅ Basic", "✅ Trends + high scores"],
+                ["Profile customization", "✅ Bio & avatar", "✅ Themes + header"],
+                ["Comment threads", "✅ Yes", "✅ Priority visibility"],
+                ["Feedback analytics", "❌", "✅ Breakdown per rubric"],
+                ["Monthly themed events", "❌", "✅ Exclusive access"],
               ].map(([feature, free, premium]) => (
-                <tr key={feature}>
+                <tr key={feature as string}>
                   <td style={{ ...tdStyle, fontWeight: "bold" }}>{feature}</td>
                   <td style={tdStyle}>{free}</td>
                   <td style={tdStyle}>{premium}</td>
@@ -128,7 +134,6 @@ const Settings: React.FC<AppProps> = ({ user }) => {
       )}
     </div>
   );
-
 };
 
 export default Settings;
