@@ -3,10 +3,15 @@ import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 type FeaturedPhoto = {
   username: string;
+  photoId: string;
+  caption: string;
   photoUrl: string;
+  views: number;
+  accountTier: string;
 };
 
-const FEATURED_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
+const FEATURED_LAMBDA_URL =
+  "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
 
 const FeaturedPhotos: React.FC = () => {
   const [photos, setPhotos] = useState<FeaturedPhoto[]>([]);
@@ -18,8 +23,8 @@ const FeaturedPhotos: React.FC = () => {
       try {
         const result = await invokeLambdaIam({
           url: FEATURED_LAMBDA_URL,
-          method: "POST", // IAM-protected Function URLs must use POST (or signed GET)
-          body: {}, // empty payload if none needed
+          method: "POST",
+          body: {},
         });
 
         if (result.featuredPhotos) {
@@ -68,17 +73,42 @@ const FeaturedPhotos: React.FC = () => {
         >
           {photos.map((photo) => (
             <div
-              key={photo.photoUrl}
+              key={photo.photoId}
               style={{
                 backgroundColor: "white",
                 color: "black",
                 borderRadius: 8,
                 padding: "1rem",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                boxShadow:
+                  photo.accountTier === "premium"
+                    ? "0 0 12px 2px gold"
+                    : "0 2px 8px rgba(0,0,0,0.2)",
+                border:
+                  photo.accountTier === "premium"
+                    ? "2px solid gold"
+                    : "1px solid #ccc",
                 width: 200,
                 textAlign: "center",
+                position: "relative",
               }}
             >
+              {photo.accountTier === "premium" && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    backgroundColor: "gold",
+                    color: "black",
+                    padding: "2px 6px",
+                    fontSize: 12,
+                    fontWeight: "bold",
+                    borderRadius: 4,
+                  }}
+                >
+                  Premium
+                </div>
+              )}
               <img
                 src={photo.photoUrl}
                 alt={`Photo by ${photo.username}`}
@@ -91,6 +121,20 @@ const FeaturedPhotos: React.FC = () => {
                 }}
               />
               <div style={{ fontWeight: "bold" }}>{photo.username}</div>
+              {photo.caption && (
+                <div
+                  style={{
+                    fontStyle: "italic",
+                    fontSize: "0.85rem",
+                    marginTop: 4,
+                  }}
+                >
+                  {photo.caption}
+                </div>
+              )}
+              <div style={{ fontSize: "0.75rem", marginTop: 4, color: "#555" }}>
+                👁️ {photo.views} views
+              </div>
             </div>
           ))}
         </div>
