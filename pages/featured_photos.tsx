@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+import { CommentThread } from "@/components/CommentThread";
+import { getCurrentUser } from "aws-amplify/auth";
+
 
 type FeaturedPhoto = {
   username: string;
@@ -17,6 +20,7 @@ const FeaturedPhotos: React.FC = () => {
   const [photos, setPhotos] = useState<FeaturedPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentUsername, setCurrentUsername] = useState<string>("");
 
   useEffect(() => {
     const fetchPhotos = async () => {
@@ -40,6 +44,16 @@ const FeaturedPhotos: React.FC = () => {
       }
     };
 
+    const fetchUsername = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUsername(user.username);
+      } catch (err) {
+        console.error("Failed to get current user", err);
+      }
+    };
+
+    fetchUsername();
     fetchPhotos();
   }, []);
 
@@ -71,7 +85,8 @@ const FeaturedPhotos: React.FC = () => {
             justifyContent: "center",
           }}
         >
-          {photos.map((photo) => (
+          {!currentUsername && <p>Loading user info...</p>}
+          {currentUsername && photos.map((photo) => (
             <div
               key={photo.photoId}
               style={{
@@ -135,6 +150,8 @@ const FeaturedPhotos: React.FC = () => {
               <div style={{ fontSize: "0.75rem", marginTop: 4, color: "#555" }}>
                 👁️ {photo.views} views
               </div>
+              <CommentThread photoId={photo.photoId} currentUser={currentUsername} />
+
             </div>
           ))}
         </div>
