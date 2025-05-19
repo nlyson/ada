@@ -1,22 +1,40 @@
 import React, { useState } from "react";
 import { CommentThread } from "@/components/CommentThread";
+import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+
+const TRACK_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/track_photo_view"
+
+
+
+const trackPhotoView = async (photoId: string) => {
+  try {
+    await invokeLambdaIam({
+      url: TRACK_PHOTO_URL,
+      method: "POST",
+      body: { photoId },
+    });
+  } catch (err) {
+    console.error("Failed to track photo view", err);
+  }
+};
 
 type UploadItem = {
   key: string;
   url: string;
-  caption?:string;
+  caption?: string;
+  views?: number;
 };
 
 type Props = {
-    username: string;
-    viewerUsername: string;
-    isOwner: boolean;
-    uploadItems: UploadItem[];
-    unreadPhotoIds: string[];
-    onUpload?: (file: File, caption: string) => void;
-    onDelete?: (key: string) => void;  // ✅ make optional
-    accountTier?: string;
-  };
+  username: string;
+  viewerUsername: string;
+  isOwner: boolean;
+  uploadItems: UploadItem[];
+  unreadPhotoIds: string[];
+  onUpload?: (file: File, caption: string) => void;
+  onDelete?: (key: string) => void;  // ✅ make optional
+  accountTier?: string;
+};
 
 const uploadLimit = 10;
 
@@ -52,6 +70,8 @@ const UserUploads: React.FC<Props> = ({
     setCaption(""); // ✅ reset caption after upload
     setUploading(false);
   };
+
+  console.log("----upload items", uploadItems)
 
   return (
     <div style={{ marginBottom: 48 }}>
@@ -136,7 +156,7 @@ const UserUploads: React.FC<Props> = ({
       {uploadItems.length > 0 && (
         <>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-            {uploadItems.map(({ key, url, caption }) => {
+            {uploadItems.map(({ key, url, caption, views }) => {
               const hasUnread = unreadPhotoIds.includes(key);
               return (
                 <div
@@ -149,17 +169,22 @@ const UserUploads: React.FC<Props> = ({
                     borderRadius: 12,
                     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                   }}
-                >                  
-                <img
-                  src={url}
-                  alt="User creation"
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",        // ✅ preserves aspect ratio
-                    borderRadius: 8,
-                    display: "block",
-                  }}
-                />
+                >
+                  <img
+                    src={url}
+                    alt="User creation"
+                    onLoad={() => {
+                      if (!isOwner) {
+                        trackPhotoView(key); // key is your photoId
+                      }
+                    }}
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 8,
+                      display: "block",
+                    }}
+                  />
 
                   {hasUnread && (
                     <span
@@ -180,39 +205,51 @@ const UserUploads: React.FC<Props> = ({
                   )}
 
                   <CommentThread photoId={key} currentUser={viewerUsername} />
+
                   {caption && (
-                  <p style={{
-                    fontSize: "0.85rem",
-                    fontStyle: "italic",
-                    color: "#555",
-                    marginTop: 8,
-                    textAlign: "center",
-                    wordBreak: "break-word"
-                  }}>
-                    {caption}
-                  </p>
-                )}
-            {onDelete && (
-                  <button
-                    onClick={() => {
-                            if (onDelete) onDelete(key);
-                    }}                    
-                    style={{
-                      position: "absolute",
-                      top: 4,
-                      right: 4,
-                      background: "red",
-                      color: "white",
-                      borderRadius: "50%",
-                      width: 24,
-                      height: 24,
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                    }}
-                  >
-                    🗑️
-                  </button>
-            )}
+                    <p style={{
+                      fontSize: "0.85rem",
+                      fontStyle: "italic",
+                      color: "#555",
+                      marginTop: 8,
+                      textAlign: "center",
+                      wordBreak: "break-word"
+                    }}>
+                      {caption}
+                    </p>
+                  )}
+
+                  {typeof views === "number" && (
+                    <p style={{
+                      fontSize: "0.75rem",
+                      color: "#666",
+                      marginTop: 4,
+                      textAlign: "center"
+                    }}>
+                      👁️ {views} views
+                    </p>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={() => {
+                        if (onDelete) onDelete(key);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 4,
+                        right: 4,
+                        background: "red",
+                        color: "white",
+                        borderRadius: "50%",
+                        width: 24,
+                        height: 24,
+                        fontWeight: "bold",
+                        cursor: "pointer",
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
               );
             })}
