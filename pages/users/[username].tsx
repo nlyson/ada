@@ -117,7 +117,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
       const res = await invokeLambdaIam({
         url: GET_SCAVENGER_RESULTS_URL,
         method: "POST",
-        body: { 
+        body: {
           username,
           huntId: "alphabet-hunt-2025"
         },
@@ -138,76 +138,76 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   }
 
 
-async function handleHuntUpload(promptId: string, file: File) {
-  setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
+  async function handleHuntUpload(promptId: string, file: File) {
+    setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
 
-  try {
-    // Step 1: Upload to S3
-    const s3Key = `public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+    try {
+      // Step 1: Upload to S3
+      const s3Key = `public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
 
-    await uploadToCustomBucket(file, s3Key);
+      await uploadToCustomBucket(file, s3Key);
 
 
-    const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${s3Key}`;
+      const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${s3Key}`;
 
-    // Step 2: Call Lambda with just the s3Key
-    await invokeLambdaIam({
-      url: SUBMIT_HUNT_PHOTO_URL,
-      method: "POST",
-      body: {
-        huntId: "alphabet-hunt-2025",
-        username: user.username,
-        promptId,
-        s3Key,
-      },
-    });
-
-    // Step 3: Review / score the photo
-    await invokeLambdaIam({
-      url: REVIEW_PHOTO_LAMBDA_URL,
-      method: "POST",
-      body: {
-        imageUrl,
-        s3Key,
-        rubric: true,
-        username: user.username,
-        huntId: "alphabet-hunt-2025",
-        scavengerPromptId: promptId,
-      },
-    });
-
-    // Step 4: Update stats
-    await invokeLambdaIam({
-      url: UPDATE_USER_STATS_LAMBDA_URL,
-      method: "POST",
-      body: {
-        username: user.username,
-        updates: {
-          recomputeScavengerHuntStats: { op: "recomputeScavengerHuntStats" },
+      // Step 2: Call Lambda with just the s3Key
+      await invokeLambdaIam({
+        url: SUBMIT_HUNT_PHOTO_URL,
+        method: "POST",
+        body: {
+          huntId: "alphabet-hunt-2025",
+          username: user.username,
+          promptId,
+          s3Key,
         },
-      },
-    });
+      });
 
-    await invokeLambdaIam({
-      url: UPDATE_USER_STATS_LAMBDA_URL,
-      method: "POST",
-      body: {
-        username: user.username,
-        updates: {
-          streakDays: { op: "updateStreak" },
+      // Step 3: Review / score the photo
+      await invokeLambdaIam({
+        url: REVIEW_PHOTO_LAMBDA_URL,
+        method: "POST",
+        body: {
+          imageUrl,
+          s3Key,
+          rubric: true,
+          username: user.username,
+          huntId: "alphabet-hunt-2025",
+          scavengerPromptId: promptId,
         },
-      },
-    });
+      });
 
-    setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
+      // Step 4: Update stats
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            recomputeScavengerHuntStats: { op: "recomputeScavengerHuntStats" },
+          },
+        },
+      });
 
-    await fetchAllScavengerResults();
-  } catch (err) {
-    console.error("Upload or scoring failed:", err);
-  } finally {
-    setHuntUploadLoading((prev) => ({ ...prev, [promptId]: false }));
+      await invokeLambdaIam({
+        url: UPDATE_USER_STATS_LAMBDA_URL,
+        method: "POST",
+        body: {
+          username: user.username,
+          updates: {
+            streakDays: { op: "updateStreak" },
+          },
+        },
+      });
+
+      setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
+
+      await fetchAllScavengerResults();
+    } catch (err) {
+      console.error("Upload or scoring failed:", err);
+    } finally {
+      setHuntUploadLoading((prev) => ({ ...prev, [promptId]: false }));
+    }
   }
-}
 
 
   useEffect(() => {
@@ -232,7 +232,7 @@ async function handleHuntUpload(promptId: string, file: File) {
       try {
         const url = `${PICTURE_THIS_STORAGE_FULL_PATH}/${BUCKET_PROFILE_PATH}/${username}.jpg?t=${Date.now()}`
         setProfileUrl(url);
-      } catch (err){
+      } catch (err) {
         setProfileUrl("/default-avatar.png");
       }
     };
@@ -251,7 +251,8 @@ async function handleHuntUpload(promptId: string, file: File) {
         const mapped = res.items?.map((item: any) => ({
           key: item.key,
           url: item.url,
-          caption: item.caption, // ✅ keep the caption
+          caption: item.caption,
+          views: item.views
         })) || [];
         setUploadItems(mapped);
       } catch (err) {
@@ -306,14 +307,14 @@ async function handleHuntUpload(promptId: string, file: File) {
             huntId: "alphabet-hunt-2025"
           }
         });
-    
+
         const promptIds: string[] = res.promptIds || [];
-    
+
         const mapped: { [promptId: string]: string } = {};
         for (const id of promptIds) {
           mapped[id] = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${username}/${id}.jpg`;
         }
-    
+
         setScavengerProgress(mapped);
         await fetchAllScavengerResults()
       } catch (err) {
@@ -430,22 +431,22 @@ async function handleHuntUpload(promptId: string, file: File) {
 
   return (
     <div style={{ padding: 24 }}>
-    <h1>
-      👤 {username}&apos;s Profile{" "}
-      {profile?.accountTier === "premium" && (
-        <span style={{
-          marginLeft: 8,
-          backgroundColor: "gold",
-          color: "black",
-          padding: "4px 8px",
-          borderRadius: 8,
-          fontWeight: "bold",
-          fontSize: "0.9em"
-        }}>
-          ⭐ Premium
-        </span>
-      )}
-    </h1>
+      <h1>
+        👤 {username}&apos;s Profile{" "}
+        {profile?.accountTier === "premium" && (
+          <span style={{
+            marginLeft: 8,
+            backgroundColor: "gold",
+            color: "black",
+            padding: "4px 8px",
+            borderRadius: 8,
+            fontWeight: "bold",
+            fontSize: "0.9em"
+          }}>
+            ⭐ Premium
+          </span>
+        )}
+      </h1>
 
 
       <ProfileCard
@@ -514,8 +515,8 @@ async function handleHuntUpload(promptId: string, file: File) {
         isOwner={isOwner}
         uploadItems={uploadItems}
         unreadPhotoIds={unreadPhotoIds}
-        onUpload={ isOwner ? handleUpload : undefined }
-        onDelete={ isOwner ? handleDelete : undefined }
+        onUpload={isOwner ? handleUpload : undefined}
+        onDelete={isOwner ? handleDelete : undefined}
         accountTier={profile?.accountTier}
       />
       <ChallengeSubmissions photos={photos} loading={loading} />
