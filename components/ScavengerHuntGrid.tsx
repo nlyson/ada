@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PhotoModal from "@/components/PhotoModal";
 
 type Prompt = {
   promptId: string;
@@ -35,6 +36,8 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
   const maxRetries = 10;
   const retriesUsed = scavengerRetries ?? 0;
   const retryLimitReached = accountTier === "premium" && retriesUsed >= maxRetries;
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+
 
   return (
     <div style={{ width: "100%", overflowX: "hidden" }}>
@@ -85,19 +88,21 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
                 <p>⏳ Processing...</p>
               ) : (
                 <>
-                  {url && (
-                    <img
-                      src={url}
-                      alt={prompt.promptId}
-                      style={{
-                        width: "100%",
-                        maxWidth: "100%",
-                        height: "auto",
-                        borderRadius: 6,
-                        display: "block",
-                      }}
-                    />
-                  )}
+                {url && (
+                  <img
+                    src={url}
+                    alt={prompt.promptId}
+                    onClick={() => setSelectedPhotoUrl(url)} // 👈 add this
+                    style={{
+                      width: "100%",
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 6,
+                      display: "block",
+                      cursor: "zoom-in", // 👈 UX hint
+                    }}
+                  />
+                )}
 
                   {/* UPLOAD INPUT below image if retries allowed */}
                   {canUpload && (
@@ -198,6 +203,9 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
           );
         })}
       </div>
-    </div>
+      {selectedPhotoUrl && (
+        <PhotoModal imageUrl={selectedPhotoUrl} onClose={() => setSelectedPhotoUrl(null)} />
+      )}
+    </div> 
   );
 };

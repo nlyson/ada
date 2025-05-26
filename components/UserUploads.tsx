@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { CommentThread } from "@/components/CommentThread";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+import PhotoModal from "@/components/PhotoModal";
+
 
 const TRACK_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/track_photo_view"
 
@@ -54,6 +56,8 @@ const UserUploads: React.FC<Props> = ({
   const maxSizeMB = accountTier === "premium" ? 50 : 2;
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   const [caption, setCaption] = useState("");
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+
 
   const handleUploadClick = async () => {
     if (!image) return;
@@ -168,22 +172,23 @@ const UserUploads: React.FC<Props> = ({
                     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                   }}
                 >
-                  <img
-                    src={url}
-                    alt="User creation"
-                    onLoad={() => {
-                      if (!isOwner) {
-                        trackPhotoView(key); // key is your photoId
-                      }
-                    }}
-                    style={{
-                      maxWidth: "100%",
-                      height: "auto",
-                      borderRadius: 8,
-                      display: "block",
-                    }}
-                  />
-
+                <img
+                  src={url}
+                  alt="User creation"
+                  onLoad={() => {
+                    if (!isOwner) {
+                      trackPhotoView(key); // track views
+                    }
+                  }}
+                  onClick={() => setSelectedPhotoUrl(url)} // 👈 add this line
+                  style={{
+                    maxWidth: "100%",
+                    height: "auto",
+                    borderRadius: 8,
+                    display: "block",
+                    cursor: "zoom-in", // 👈 visual hint
+                  }}
+                />
                   {hasUnread && (
                     <span
                       style={{
@@ -251,6 +256,9 @@ const UserUploads: React.FC<Props> = ({
                 </div>
               );
             })}
+          {selectedPhotoUrl && (
+            <PhotoModal imageUrl={selectedPhotoUrl} onClose={() => setSelectedPhotoUrl(null)} />
+          )}
           </div>
         </>
       )}

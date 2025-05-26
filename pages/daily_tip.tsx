@@ -42,9 +42,6 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
           const sorted = [...historyResult.tips].sort((a, b) => b.date.localeCompare(a.date));
           const lastTen = sorted.slice(0, 10);
 
-          console.log("📅 Fetched tip dates:", historyResult.tips.map((t: Tip) => t.date));
-          console.log("✅ Sorted tips:", sorted.map((t: Tip) => t.date));
-
           // Assume first is "today"
           setTips(lastTen);
         } else {
@@ -108,8 +105,6 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
 
 {!loading && !error && tips.length > 0 && (
   <>
-    { console.log("🧪 Rendering tip:", tips[0].date, tips[0].tip) }
-
     {/* Today’s Tip */}
     <motion.div
       initial={{ opacity: 0 }}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PhotoModal from "@/components/PhotoModal";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import { CommentThread } from "@/components/CommentThread";
 import { getCurrentUser } from "aws-amplify/auth";
@@ -21,6 +22,7 @@ const FeaturedPhotos: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentUsername, setCurrentUsername] = useState<string>("");
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPhotos = async () => {
@@ -127,14 +129,17 @@ const FeaturedPhotos: React.FC = () => {
               <img
                 src={photo.photoUrl}
                 alt={`Photo by ${photo.username}`}
+                onClick={() => setSelectedPhotoUrl(photo.photoUrl)}
                 style={{
                   width: "100%",
                   height: 200,
                   objectFit: "cover",
                   borderRadius: 6,
                   marginBottom: 8,
+                  cursor: "zoom-in", // visual cue
                 }}
               />
+
               <div style={{ fontWeight: "bold" }}>{photo.username}</div>
               {photo.caption && (
                 <div
@@ -151,8 +156,11 @@ const FeaturedPhotos: React.FC = () => {
                 👁️ {photo.views} views
               </div>
               <CommentThread photoId={photo.photoId} currentUser={currentUsername} />
-
+              {selectedPhotoUrl && (
+                <PhotoModal imageUrl={selectedPhotoUrl} onClose={() => setSelectedPhotoUrl(null)} />
+              )}
             </div>
+
           ))}
         </div>
       </div>
