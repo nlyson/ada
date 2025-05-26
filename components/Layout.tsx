@@ -77,25 +77,37 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             <li><Link href="/" onClick={handleMenuClick}>🏠 Home</Link></li>
             {user && (
-              <li style={{ display: "flex", alignItems: "center" }}>
-                <Link href={`/users/${user.username}`} onClick={handleMenuClick} style={{ display: "flex", alignItems: "center" }}>
-                  👤 My Profile
-                  {unreadCount > 0 && (
-                    <span style={{
-                      background: "red",
-                      color: "white",
-                      marginLeft: 6,
-                      borderRadius: "50%",
-                      padding: "0 8px",
-                      fontSize: "0.75rem",
-                      fontWeight: "bold",
-                      lineHeight: "1.5rem",
-                    }}>
-                      {unreadCount}
-                    </span>
-                  )}
-                </Link>
-              </li>
+              <>
+                <li style={{ display: "flex", alignItems: "center" }}>
+                  <Link
+                    href={`/users/${user.username}`}
+                    onClick={handleMenuClick}
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
+                    👤 My Profile
+                    {unreadCount > 0 && (
+                      <span style={{
+                        background: "red",
+                        color: "white",
+                        marginLeft: 6,
+                        borderRadius: "50%",
+                        padding: "0 8px",
+                        fontSize: "0.75rem",
+                        fontWeight: "bold",
+                        lineHeight: "1.5rem",
+                      }}>
+                        {unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+
+                {user.username === "jama" || user.username === "nathan" ? (
+                  <li>
+                    <Link href="/admin" onClick={handleMenuClick}>🛠️ Admin Panel</Link>
+                  </li>
+                ) : null}
+              </>
             )}
             <li><Link href="/featured_photos" onClick={handleMenuClick}>🌟 Featured Photos</Link></li>
             <li><Link href="/photo_feedback" onClick={handleMenuClick}>📝 Photo Feedback</Link></li>
