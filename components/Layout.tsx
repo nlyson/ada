@@ -103,6 +103,7 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
             <li><Link href="/podcasts" onClick={handleMenuClick}>🎧 Podcasts</Link></li>
             <li><Link href="/learninghub" onClick={handleMenuClick}>📚 Learning Hub</Link></li>
             <li><Link href="/challenge" onClick={handleMenuClick}>🏆 Photo Challenge</Link></li>
+            <li><Link href="/challenges" onClick={handleMenuClick}>📚 Challenge Archive</Link></li>
             <li><Link href="/scoreboard" onClick={handleMenuClick}>📊 High Scores</Link></li>
             <li><Link href="/about_me" onClick={handleMenuClick}>👤 About Me</Link></li>
             <li><Link href="/settings" onClick={handleMenuClick}>⚙️ Settings</Link></li>

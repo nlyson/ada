@@ -12,7 +12,7 @@ type AppProps = {
   user: { username: string };
 };
 
-const CHALLENGE_ID = "weekly_01";
+const challengeId = "weekly_01"; // 👈 replace hardcoded `CHALLENGE_ID` use with this
 
 const Challenge: React.FC<AppProps> = ({ user }) => {
   const [image, setImage] = useState<File | null>(null);
@@ -23,7 +23,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
     { score: number; rubric: Record<string, number>; feedback: string; imageUrl: string }[]
   >([]);
   const [accountTier, setAccountTier] = useState<string>("free");
-
+  const [totalChallengeSubmissions, setTotalChallengeSubmissions] = useState(0);
   const submissionCount = results.length;
 
   useEffect(() => {
@@ -40,13 +40,31 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       }
     }
 
-    fetchProfile();
-    handleFetchResults();
+    async function init() {
+      await fetchProfile();
+      await handleFetchResults();
+      await fetchSubmissionCount(); // ✅ add this
+    }
+    init();
   }, []);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setImage(e.target.files?.[0] || null);
   };
+
+  async function fetchSubmissionCount() {
+    try {
+      const res = await invokeLambdaIam({
+        url: "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_results",
+        method: "POST",
+        body: { username: user.username }
+      });
+      const total = Array.isArray(res) ? res.length : 0;
+      setTotalChallengeSubmissions(total);
+    } catch (err) {
+      console.error("Failed to fetch challenge submission count:", err);
+    }
+  }
 
   const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -87,7 +105,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         body: {
           action: "submit",
           username: user.username,
-          challengeId: CHALLENGE_ID,
+          challengeId: challengeId,
           fileName: image.name,
           fileContent: base64,
           fileType: image.type,
@@ -109,7 +127,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
             s3Key: result.s3Key,
             rubric: true,
             username: user.username,
-            challengeId: CHALLENGE_ID,
+            challengeId: challengeId,
           },
         });
       }
@@ -182,8 +200,6 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   };
 
   const hasSubmitted = results.length > 0;
-  console.log("Account tier", accountTier);
-
   return (
     <div style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", backgroundColor: "#fffaf0", minHeight: "100vh" }}>
       <h1 style={{ textAlign: "center", marginBottom: "1.5rem" }}>
