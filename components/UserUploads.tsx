@@ -71,8 +71,6 @@ const UserUploads: React.FC<Props> = ({
     setUploading(false);
   };
 
-  console.log("----upload items", uploadItems)
-
   return (
     <div style={{ marginBottom: 48 }}>
       <h2 style={{ fontSize: "1.5rem", marginBottom: 4 }}>

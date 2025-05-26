@@ -3,6 +3,10 @@ import { ScavengerHuntGrid } from "@/components/ScavengerHuntGrid";
 import Link from "next/link";
 
 type Props = {
+  huntId: string;
+  huntName: string;
+  huntStartDate: string; // ISO string (e.g., "2025-05-05")
+  huntPrompts: { promptId: string; text: string; optional?: boolean }[];
   username: string;
   isOwner: boolean;
   progress: { [promptId: string]: string };
@@ -14,6 +18,10 @@ type Props = {
 };
 
 const ScavengerHuntSection: React.FC<Props> = ({
+  huntId,
+  huntName,
+  huntStartDate,
+  huntPrompts,
   username,
   isOwner,
   progress,
@@ -23,23 +31,14 @@ const ScavengerHuntSection: React.FC<Props> = ({
   accountTier,
   scavengerRetries
 }) => {
-  const huntStart = new Date("2025-05-05");
+  const huntStart = new Date(huntStartDate);
   const today = new Date();
   const unlockedCount = Math.min(
     30,
     Math.floor((today.getTime() - huntStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
   );
 
-  const scavengerPrompts = [
-    ...'abcdefghijklmnopqrstuvwxyz'.split('').map(letter => ({
-      promptId: letter,
-      text: `Something that starts with ${letter.toUpperCase()}`,
-    })),
-    { promptId: "number", text: "A photo with a number in it" },
-    { promptId: "color", text: "A photo dominated by one color" },
-    { promptId: "reflection", text: "Something with a reflection" },
-    { promptId: "pattern", text: "A repeating pattern" },
-  ];
+  const scavengerPrompts = huntPrompts;
 
 
   return (

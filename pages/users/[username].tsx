@@ -40,6 +40,7 @@ const BUCKET_PROFILE_PATH = "public/profile-pics";
 const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_stats";
 
 const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaws.com";
+const LIST_HUNTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/list_scavenger_hunts";
 
 type UploadItem = {
   key: string;
@@ -51,6 +52,21 @@ type AppProps = {
   signOut: () => void;
   user: { username: string };
 };
+
+type ScavengerHunt = {
+  huntId: string;
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+  prompts: {
+    promptId: string;
+    text: string;
+    optional?: boolean;
+  }[];
+};
+
 
 const UserPage: React.FC<AppProps> = ({ user }) => {
   const router = useRouter();
@@ -66,6 +82,8 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   const [unreadPhotoIds, setUnreadPhotoIds] = useState<string[]>([]);
   const [scavengerProgress, setScavengerProgress] = useState<{ [promptId: string]: string }>({});
   const [huntUploadLoading, setHuntUploadLoading] = useState<{ [promptId: string]: boolean }>({});
+  const [availableHunts, setAvailableHunts] = useState<ScavengerHunt[]>([]);
+  const [selectedHuntId, setSelectedHuntId] = useState("alphabet-hunt-2025");
 
   const [editProfile, setEditProfile] = useState<UserProfile>({
     username,
@@ -111,18 +129,17 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   }
 
 
-  async function fetchAllScavengerResults() {
+  async function fetchAllScavengerResults(huntId: string) {
     try {
-      // batch‐get all prompt results for this user and hunt
       const res = await invokeLambdaIam({
         url: GET_SCAVENGER_RESULTS_URL,
         method: "POST",
         body: {
           username,
-          huntId: "alphabet-hunt-2025"
+          huntId,
         },
       });
-      // assume res is an array: [{ promptId, score, rubric, feedback }, …]
+
       const mapped: typeof scavengerResults = {};
       for (const r of res) {
         mapped[r.promptId] = {
@@ -131,6 +148,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           feedback: r.feedback,
         };
       }
+
       setScavengerResults(mapped);
     } catch (err) {
       console.error("Failed to fetch scavenger results:", err);
@@ -143,7 +161,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
     try {
       // Step 1: Upload to S3
-      const s3Key = `public/scavenger-hunts/alphabet-hunt-2025/${user.username}/${promptId}.jpg`;
+      const s3Key = `public/scavenger-hunts/${selectedHuntId}/${user.username}/${promptId}.jpg`;
 
       await uploadToCustomBucket(file, s3Key);
 
@@ -155,7 +173,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         url: SUBMIT_HUNT_PHOTO_URL,
         method: "POST",
         body: {
-          huntId: "alphabet-hunt-2025",
+          huntId: selectedHuntId,
           username: user.username,
           promptId,
           s3Key,
@@ -171,7 +189,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           s3Key,
           rubric: true,
           username: user.username,
-          huntId: "alphabet-hunt-2025",
+          huntId: selectedHuntId,
           scavengerPromptId: promptId,
         },
       });
@@ -201,7 +219,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
       setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
 
-      await fetchAllScavengerResults();
+      await fetchAllScavengerResults(selectedHuntId);
     } catch (err) {
       console.error("Upload or scoring failed:", err);
     } finally {
@@ -209,11 +227,45 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     }
   }
 
+  async function fetchHuntProgress(huntId: string) {
+    try {
+      const res = await invokeLambdaIam({
+        url: GET_USER_HUNT_PROGRESS_URL,
+        method: "POST",
+        body: {
+          username,
+          huntId,
+        },
+      });
+
+      const promptIds: string[] = res.promptIds || [];
+
+      const mapped: { [promptId: string]: string } = {};
+      for (const id of promptIds) {
+        mapped[id] = `${PICTURE_THIS_STORAGE_FULL_PATH}/public/scavenger-hunts/${huntId}/${username}/${id}.jpg`;
+      }
+
+      setScavengerProgress(mapped);
+    } catch (err) {
+      console.error("Failed to fetch scavenger hunt progress:", err);
+    }
+  }
 
   useEffect(() => {
     if (!username) return;
 
-
+    const fetchAvailableHunts = async () => {
+      try {
+        const res = await invokeLambdaIam({
+          url: LIST_HUNTS_URL,
+          method: "POST"
+        });
+        const hunts = res || [];
+        setAvailableHunts(hunts);
+      } catch (err) {
+        console.error("Failed to fetch hunt list:", err);
+      }
+    };
 
     async function fetchPhotos() {
       try {
@@ -297,33 +349,10 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
       }
     };
 
-    async function fetchHuntProgress() {
-      try {
-        const res = await invokeLambdaIam({
-          url: GET_USER_HUNT_PROGRESS_URL,
-          method: "POST",
-          body: {
-            username,
-            huntId: "alphabet-hunt-2025"
-          }
-        });
 
-        const promptIds: string[] = res.promptIds || [];
 
-        const mapped: { [promptId: string]: string } = {};
-        for (const id of promptIds) {
-          mapped[id] = `https://picture-this-storage.s3.amazonaws.com/public/scavenger-hunts/alphabet-hunt-2025/${username}/${id}.jpg`;
-        }
 
-        setScavengerProgress(mapped);
-        await fetchAllScavengerResults()
-      } catch (err) {
-        console.error("Failed to fetch scavenger hunt progress:", err);
-      }
-    }
-
-    fetchAllScavengerResults();
-    fetchHuntProgress();
+    fetchAvailableHunts();
     fetchUnreadFlags();
     fetchProfile();
     fetchPhotos();
@@ -331,6 +360,12 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     fetchUploads();
     setLoading(false);
   }, [username]);
+
+  useEffect(() => {
+    if (!selectedHuntId || !username) return;
+    fetchHuntProgress(selectedHuntId);
+    fetchAllScavengerResults(selectedHuntId);
+  }, [selectedHuntId, username]);
 
   async function handleUpload(file: File, caption: string) {
     if (!file) return;
@@ -429,6 +464,9 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     }
   }
 
+  const selectedHunt = availableHunts.find(h => h.huntId === selectedHuntId);
+
+
   return (
     <div style={{ padding: 24 }}>
       <h1>
@@ -520,9 +558,30 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         accountTier={profile?.accountTier}
       />
       <ChallengeSubmissions photos={photos} loading={loading} />
-
+      {profile?.accountTier === "premium" && (
+        <div style={{ marginBottom: 24 }}>
+          <label htmlFor="hunt-select" style={{ fontWeight: "bold", marginRight: 8 }}>
+            🧭 Select Scavenger Hunt:
+          </label>
+          <select
+            id="hunt-select"
+            value={selectedHuntId}
+            onChange={(e) => setSelectedHuntId(e.target.value)}
+            style={{ padding: "6px 12px", borderRadius: 6, fontSize: "1rem" }}
+          >
+            {availableHunts.map((hunt) => (
+              <option key={hunt.huntId} value={hunt.huntId}>
+                {hunt.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <ScavengerHuntSection
-        username={username}
+        huntId={selectedHuntId}
+        huntName={selectedHunt?.name || ""}
+        huntStartDate={selectedHunt?.startDate || "2025-05-01"} // fallback
+        huntPrompts={selectedHunt?.prompts || []}        username={username}
         isOwner={isOwner}
         progress={scavengerProgress}
         results={scavengerResults}
