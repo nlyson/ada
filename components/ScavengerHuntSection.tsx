@@ -47,7 +47,7 @@ const ScavengerHuntSection: React.FC<Props> = ({
       <p style={{ fontStyle: "italic", marginBottom: 16 }}>
         One photo per prompt — choose your shot carefully! Once submitted, it counts as your official entry for that day.
       </p>
-      {isOwner && (
+      {isOwner && accountTier === "free" && (
         <div
           style={{
             backgroundColor: "#f0faff",

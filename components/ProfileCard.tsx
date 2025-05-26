@@ -2,6 +2,8 @@ import React from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 const GET_PROFILE_UPLOAD_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_profile_upload_url";
+const DEFAULT_PROFILE_IMG = "https://www.gravatar.com/avatar/?d=mp";
+
 
 type Props = {
     username: string;
@@ -54,6 +56,9 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
   }
 };
 
+  const safeProfileUrl = profileUrl && !["null", "undefined"].includes(profileUrl)
+  ? profileUrl
+  : DEFAULT_PROFILE_IMG;
 
 
   return (
@@ -66,7 +71,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       textAlign: "center",
     }}>
       <img
-        src={profileUrl}
+        src={safeProfileUrl}
         alt={`${username}'s profile`}
         style={{
           width: 120,
@@ -75,6 +80,11 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
           borderRadius: "50%",
           boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
           marginBottom: 16,
+        }}
+        onError={(e) => {
+          const img = e.currentTarget;
+          img.onerror = null; // prevent infinite loop
+          img.src = DEFAULT_PROFILE_IMG;
         }}
       />
       <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: 4 }}>

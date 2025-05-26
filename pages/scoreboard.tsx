@@ -43,9 +43,7 @@ useEffect(() => {
 
       const withUrls = (result || []).map((entry: any) => ({
         ...entry,
-        signedUrl: entry.s3Key
-          ? `https://${BUCKET}.s3.amazonaws.com/${entry.s3Key}`
-          : "",
+        signedUrl: entry.signedUrl || "", // Already provided now
       }));
 
       setChallengeScores(withUrls);
@@ -168,25 +166,50 @@ useEffect(() => {
         <>
           <h2 style={{ marginTop: 48 }}>🗺️ Scavenger Hunt Monthly Scores</h2>
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-            {scavengerScores.map((s, i) => (
-              <div
-                key={s.username}
-                style={{
-                  padding: 16,
-                  backgroundColor: "#eef6ff",
-                  borderRadius: 10,
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: 16,
-                  fontWeight: 500,
-                }}
-              >
+          {scavengerScores.map((s, i) => (
+            <div
+              key={s.username}
+              style={{
+                padding: 16,
+                backgroundColor: "#eef6ff",
+                borderRadius: 10,
+                boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontSize: 16,
+                fontWeight: 500,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {s.signedUrl ? (
+                  <img
+                    src={s.signedUrl}
+                    alt="submission"
+                    style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 6 }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      backgroundColor: "#ccc",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: "#666",
+                    }}
+                  >
+                    No image
+                  </div>
+                )}
                 <span>#{i + 1} – {s.username}</span>
-                <span>✅ {s.score} points</span>
               </div>
-            ))}
+              <span>✅ {s.score} points</span>
+            </div>
+          ))}
           </div>
         </>
       )}

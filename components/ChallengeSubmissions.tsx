@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
+import PhotoModal from "@/components/PhotoModal";
+
 
 type ChallengePhoto = {
   imageUrl: string;
@@ -11,6 +13,8 @@ type Props = {
 };
 
 const ChallengeSubmissions: React.FC<Props> = ({ photos, loading }) => {
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+
   return (
     <div style={{ marginTop: 32, marginBottom: 48 }}>
       <h2>📷 Challenge Submissions</h2>
@@ -32,7 +36,12 @@ const ChallengeSubmissions: React.FC<Props> = ({ photos, loading }) => {
               <img
                 src={photo.imageUrl}
                 alt={photo.caption}
-                style={{ width: "100%", borderRadius: 8 }}
+                onClick={() => setSelectedPhotoUrl(photo.imageUrl)}
+                style={{
+                  width: "100%",
+                  borderRadius: 8,
+                  cursor: "zoom-in",
+                }}
               />
               {photo.caption && (
                 <p style={{ marginTop: 4 }}>{photo.caption}</p>
@@ -40,6 +49,12 @@ const ChallengeSubmissions: React.FC<Props> = ({ photos, loading }) => {
             </div>
           ))}
         </div>
+      )}
+      {selectedPhotoUrl && (
+        <PhotoModal
+          imageUrl={selectedPhotoUrl}
+          onClose={() => setSelectedPhotoUrl(null)}
+        />
       )}
     </div>
   );

@@ -43,7 +43,11 @@ export const UserStatsCard: React.FC<Props> = ({ username, isOwner }) => {
         setStats(res);
       } catch (err: any) {
         console.error(err);
-        setError(err.message);
+        if (err.message?.includes("404")) {
+          setStats(null); // No stats yet
+        } else {
+          setError(err.message || "Unknown error");
+        }
       } finally {
         setLoading(false);
       }
@@ -54,8 +58,16 @@ export const UserStatsCard: React.FC<Props> = ({ username, isOwner }) => {
 
   if (loading) return <div>Loading stats...</div>;
   if (error) return <div>Error loading stats: {error}</div>;
-  if (!stats) return null;
-
+  if (!stats) {
+    return (
+      <div className="border rounded-xl p-4 shadow bg-white dark:bg-gray-900 mt-4">
+        <h2 className="text-xl font-semibold mb-2">📊 User Stats</h2>
+        <p className="text-gray-500 text-sm">
+          No stats yet. Start participating in challenges and scavenger hunts to see your progress here!
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="border rounded-xl p-4 shadow bg-white dark:bg-gray-900 mt-4">
       <h2 className="text-xl font-semibold mb-2">📊 User Stats</h2>
