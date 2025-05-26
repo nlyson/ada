@@ -14,6 +14,8 @@ type Props = {
   results: { [promptId: string]: { score: number; rubric: any; feedback: string } };
   loadingMap: { [promptId: string]: boolean };
   onUpload: (promptId: string, file: File) => void;
+  accountTier?: string;
+  scavengerRetries?: number;
 };
 
 export const ScavengerHuntGrid: React.FC<Props> = ({
@@ -25,11 +27,22 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
   results,
   loadingMap,
   onUpload,
+  accountTier,
+  scavengerRetries
 }) => {
   const [openFeedback, setOpenFeedback] = useState<string | null>(null);
 
+  const maxRetries = 10;
+  const retriesUsed = scavengerRetries ?? 0;
+  const retryLimitReached = accountTier === "premium" && retriesUsed >= maxRetries;
+
   return (
     <div style={{ width: "100%", overflowX: "hidden" }}>
+      {isOwner && accountTier === "premium" && (
+      <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "#444" }}>
+        🔁 <strong>Retries used:</strong> {retriesUsed} / {maxRetries}
+      </div>
+    )}
       <div
         style={{
           display: "grid",
@@ -42,6 +55,15 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
           const isUnlocked = day <= unlockedCount;
           const url = submissions[prompt.promptId];
           const isLoading = loadingMap[prompt.promptId];
+
+          const isFreeAndSubmitted = accountTier !== "premium" && !!url;
+          const canUpload =
+            isOwner &&
+            isUnlocked &&
+            (
+              (accountTier !== "premium" && !url) ||
+              (accountTier === "premium" && !retryLimitReached)
+            );
 
           return (
             <div
@@ -58,32 +80,71 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
             >
               <p style={{ fontWeight: "bold", marginBottom: 8 }}>Day {day}</p>
 
+              {/* IMAGE if submitted */}
               {isLoading ? (
                 <p>⏳ Processing...</p>
-              ) : url ? (
-                <img
-                  src={url}
-                  alt={prompt.promptId}
-                  style={{
-                    width: "100%",
-                    maxWidth: "100%",
-                    height: "auto",
-                    borderRadius: 6,
-                    display: "block",
-                  }}
-                />
-              ) : isOwner && isUnlocked ? (
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onUpload(prompt.promptId, file);
-                  }}
-                />
               ) : (
-                <p>🔒 Locked</p>
+                <>
+                  {url && (
+                    <img
+                      src={url}
+                      alt={prompt.promptId}
+                      style={{
+                        width: "100%",
+                        maxWidth: "100%",
+                        height: "auto",
+                        borderRadius: 6,
+                        display: "block",
+                      }}
+                    />
+                  )}
+
+                  {/* UPLOAD INPUT below image if retries allowed */}
+                  {canUpload && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        const maxSizeMB = accountTier === "premium" ? 50 : 2;
+                        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+                        if (file.size > maxSizeBytes) {
+                          alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
+                          return;
+                        }
+
+                        onUpload(prompt.promptId, file);
+                      }}
+                      style={{ marginTop: 8 }}
+                    />
+                  )}
+
+                  {/* LOCKED State for others */}
+                  {!canUpload && !url && (
+                    <p>🔒 Locked</p>
+                  )}
+                </>
               )}
+
+              {/* LIMIT MESSAGES */}
+              {isOwner && url && !isLoading && accountTier !== "premium" && (
+                <p style={{ color: "red", fontSize: "0.75rem", marginTop: 4 }}>
+                  You cannot retry this prompt as a free user.
+                </p>
+              )}
+              {isOwner && url && !isLoading && retryLimitReached && (
+                <p style={{ color: "red", fontSize: "0.75rem", marginTop: 4 }}>
+                  Retry limit reached (10/10). Premium limit hit.
+                </p>
+              )}
+
+              {/* Upload guidance */}
+              <p style={{ fontSize: "0.75rem", color: "#666", marginTop: 4 }}>
+                Max size: {accountTier === "premium" ? "50MB" : "2MB"}
+              </p>
 
               <p
                 style={{
@@ -95,6 +156,7 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
                 {prompt.text}
               </p>
 
+              {/* Feedback */}
               {!isLoading && results[prompt.promptId] && (
                 <div style={{ marginTop: 8, fontSize: "0.85rem" }}>
                   <strong>Score:</strong> {results[prompt.promptId].score}/100

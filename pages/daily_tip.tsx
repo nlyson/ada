@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+import { parseISO, format } from "date-fns";
 
 type Tip = {
   date: string;
@@ -13,11 +14,9 @@ type DailyTipProps = {
   user: { username: string };
 };
 
-function getTodayLocalDateString(): string {
+function getTodayUtcDateString(): string {
   const now = new Date();
-  // Adjust to local time by removing the timezone offset
-  const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  return localTime.toISOString().split("T")[0]; // yyyy-mm-dd
+  return now.toISOString().split("T")[0]; // yyyy-mm-dd (UTC date)
 }
 
 const TIP_HISTORY_LAMBDA_URL =
@@ -28,6 +27,8 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
   const [tipHistory, setTipHistory] = useState<Tip[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+  const [tips, setTips] = useState<Tip[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -38,22 +39,19 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
         });
 
         if (historyResult.tips) {
-          const today = getTodayLocalDateString();
+          const sorted = [...historyResult.tips].sort((a, b) => b.date.localeCompare(a.date));
+          const lastTen = sorted.slice(0, 10);
 
-          const todayTipEntry = historyResult.tips.find(
-            (tip: Tip) => tip.date === today
-          );
-          const filteredTips = historyResult.tips.filter(
-            (tip: Tip) => tip.date !== today
-          );
+          console.log("📅 Fetched tip dates:", historyResult.tips.map((t: Tip) => t.date));
+          console.log("✅ Sorted tips:", sorted.map((t: Tip) => t.date));
 
-          if (todayTipEntry) setTodayTip(todayTipEntry.tip);
-          setTipHistory(filteredTips);
+          // Assume first is "today"
+          setTips(lastTen);
         } else {
           throw new Error(historyResult.error || "Unknown error loading tip history");
         }
       } catch (err: any) {
-        console.error("Error fetching data:", err);
+        console.error("Error fetching tips:", err);
         setError("Failed to fetch tips. Try again later.");
       } finally {
         setLoading(false);
@@ -63,6 +61,8 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
     fetchData();
   }, []);
 
+
+  
   return (
     <div
       style={{
@@ -106,33 +106,64 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
         {loading && <p>Loading tips...</p>}
         {error && <p style={{ color: "red" }}>{error}</p>}
 
-        {!loading && !error && todayTip && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            style={{
-              background: "#fff",
-              color: "#000",
-              padding: "1.5rem",
-              borderRadius: "1rem",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              marginBottom: "2rem",
-              textAlign: "left",
-              fontSize: "1.1rem",
-              lineHeight: 1.6,
-            }}
-          >
-            <ReactMarkdown>{todayTip}</ReactMarkdown>
-          </motion.div>
-        )}
+{!loading && !error && tips.length > 0 && (
+  <>
+    { console.log("🧪 Rendering tip:", tips[0].date, tips[0].tip) }
 
-        {tipHistory.map((tip) => (
+    {/* Today’s Tip */}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      style={{
+        background: "#fff",
+        color: "#000",
+        padding: "1.5rem",
+        borderRadius: "1rem",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        marginBottom: "2rem",
+        textAlign: "left",
+        fontSize: "1.1rem",
+        lineHeight: 1.6,
+      }}
+    >
+
+      <div style={{ fontSize: "0.9rem", color: "#888", marginBottom: "0.5rem" }}>
+        {format(parseISO(tips[0].date), "MMMM d, yyyy")}      
+      </div>
+    <strong style={{ display: "block", marginBottom: "0.5rem", color: "#b76e79" }}>
+      📸 Today&apos;s Photography Tip
+    </strong>
+      <ReactMarkdown>{tips[0].tip}</ReactMarkdown>
+    </motion.div>
+
+    {/* Toggle Button */}
+    {tips.length > 1 && (
+      <button
+        onClick={() => setShowHistory((prev) => !prev)}
+        style={{
+          marginBottom: "1rem",
+          padding: "0.5rem 1rem",
+          borderRadius: "8px",
+          background: "#b76e79",
+          color: "#fff",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        {showHistory ? "Hide Previous Tips" : "Show Previous Tips"}
+      </button>
+    )}
+
+    {/* Collapsible Past Tips */}
+    {showHistory && (
+      <div style={{ width: "100%", maxWidth: "700px" }}>
+        {tips.slice(1).map((tip) => (
           <motion.div
             key={tip.date}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.3 }}
             style={{
               background: "#fff",
               color: "#000",
@@ -151,15 +182,17 @@ const DailyTip: React.FC<DailyTipProps> = ({ user }) => {
                 color: "#888",
               }}
             >
-              {new Date(tip.date).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+            {format(parseISO(tip.date), "MMMM d, yyyy")}
             </div>
             <ReactMarkdown>{tip.tip}</ReactMarkdown>
           </motion.div>
         ))}
+      </div>
+    )}
+  </>
+)}
+
+
       </motion.div>
     </div>
   );

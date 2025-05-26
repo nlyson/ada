@@ -24,6 +24,7 @@ const backend = defineBackend({
   sayHello,
 });
 
+
 const { cfnUserPool } = backend.auth.resources.cfnResources
 // an empty array denotes "email" and "phone_number" cannot be used as a username
 cfnUserPool.usernameAttributes = []
@@ -103,7 +104,6 @@ backend.auth.resources.unauthenticatedUserIamRole.attachInlinePolicy(
   apiRestPolicy
 );
 
-// add outputs to the configuration file
 backend.addOutput({
   custom: {
     API: {
@@ -112,6 +112,9 @@ backend.addOutput({
         region: Stack.of(myRestApi).region,
         apiName: myRestApi.restApiName,
       },
+    },
+    storage: {
+      bucket_name: "picture-this-storage",
     },
   },
 });

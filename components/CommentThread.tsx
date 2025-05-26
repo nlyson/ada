@@ -7,6 +7,7 @@ const ADD_COMMENT_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/
 const DELETE_COMMENT_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/delete_comment"
 const MARK_COMMENT_AS_READ = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/mark_comment_as_read"
 const MARK_COMMENT_AS_UNREAD = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/mark_unread_comment"
+const REACT_TO_COMMENT = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/react_to_comment"
 
 type Comment = {
   commentId: string;
@@ -21,6 +22,8 @@ type Props = {
   currentUser: string;
 };
 
+
+
 export const CommentThread: React.FC<Props> = ({ photoId, currentUser }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState("");
@@ -29,111 +32,169 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser }) => {
 
   useEffect(() => {
     const markReadIfOwner = async () => {
-        const photoOwner = photoId.split("/")[1]; // Assumes format: user-creations/username/photo.jpg
-        if (photoOwner === currentUser && !hasMarkedRef.current) {
-            try {
-              const res = await invokeLambdaIam({
-                url: MARK_COMMENT_AS_READ,
-                method: "POST",
-                body: { 
-                  username: currentUser, 
-                  photoId
-                }
-              });
-              hasMarkedRef.current = true;
-              refreshUnread(); // 👈 This will update the red badge
-            } catch (err) {
-              console.error("❌ Failed to mark comments as read", err);
+      const photoOwner = photoId.split("/")[1]; // Assumes format: user-creations/username/photo.jpg
+      if (photoOwner === currentUser && !hasMarkedRef.current) {
+        try {
+          const res = await invokeLambdaIam({
+            url: MARK_COMMENT_AS_READ,
+            method: "POST",
+            body: {
+              username: currentUser,
+              photoId
             }
-          }
-        };
+          });
+          hasMarkedRef.current = true;
+          refreshUnread(); // 👈 This will update the red badge
+        } catch (err) {
+          console.error("❌ Failed to mark comments as read", err);
+        }
+      }
+    };
 
-        markReadIfOwner();
-        fetchComments();
+    markReadIfOwner();
+    fetchComments();
   }, [photoId, currentUser]);
+
+  const handleReact = async (commentId: string, emoji: string) => {
+    try {
+      await invokeLambdaIam({
+        url: REACT_TO_COMMENT,
+        method: "POST",
+        body: {
+          photoId,
+          commentId,
+          emoji,
+        },
+      });
+
+      await fetchComments(); // refresh counts
+    } catch (err) {
+      console.error("Failed to react:", err);
+    }
+  };
 
   const fetchComments = async () => {
     try {
-        const res = await invokeLambdaIam({
-            url: GET_COMMENT_LIST_URL,
-            method: "POST",
-            body: {photoId},
-        });
-        setComments(res.comments || []);
+      const res = await invokeLambdaIam({
+        url: GET_COMMENT_LIST_URL,
+        method: "POST",
+        body: { photoId },
+      });
+      setComments(res.comments || []);
     } catch (err) {
-        console.error("Failed to fetch comments:", err);
+      console.error("Failed to fetch comments:", err);
     }
   };
 
   const postComment = async () => {
     try {
-        const res = await invokeLambdaIam({
-            url: ADD_COMMENT_URL,
-            method: "POST",
-            body: { 
-                photoId,
-                username: currentUser,
-                text
-            }
-        });
-        const res2 = await invokeLambdaIam({
-            url: MARK_COMMENT_AS_UNREAD,
-            method: "POST",
-            body: { photoId }
-        });
+      const res = await invokeLambdaIam({
+        url: ADD_COMMENT_URL,
+        method: "POST",
+        body: {
+          photoId,
+          username: currentUser,
+          text
+        }
+      });
+      const res2 = await invokeLambdaIam({
+        url: MARK_COMMENT_AS_UNREAD,
+        method: "POST",
+        body: { photoId }
+      });
 
-        setText("");
-        await fetchComments();
+      setText("");
+      await fetchComments();
     } catch (err) {
-        console.error("Failed to add comments:", err);
+      console.error("Failed to add comments:", err);
     }
   };
 
   const handleDelete = async (commentId: string) => {
     try {
-        const res = await invokeLambdaIam({
-            url: DELETE_COMMENT_URL,
-            method: "POST",
-            body: { 
-                photoId,
-                commentId,
-                requesterUsername: currentUser
-            }
-        });
-        await fetchComments();
+      const res = await invokeLambdaIam({
+        url: DELETE_COMMENT_URL,
+        method: "POST",
+        body: {
+          photoId,
+          commentId,
+          requesterUsername: currentUser
+        }
+      });
+      await fetchComments();
     } catch (err) {
-        console.error("Failed to delete comments:", err);
+      console.error("Failed to delete comments:", err);
     }
 
   };
 
   return (
     <div style={{ marginTop: 8 }}>
-  <div>
-    {comments.map((c) => (
-      <div key={c.commentId} style={{ borderBottom: "1px solid #ccc", padding: "4px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <strong>{c.username}</strong>: {c.text}
-        </div>
-        {(c.username === currentUser || photoId.includes(`/${currentUser}/`)) && (
-          <button
-            onClick={() => handleDelete(c.commentId)}
+      <div>
+        {comments.map((c) => (
+          <div
+            key={c.commentId}
             style={{
-              background: "none",
-              border: "none",
-              color: "red",
-              cursor: "pointer",
-              fontSize: "1rem",
-              marginLeft: 8
+              borderBottom: "1px solid #ccc",
+              padding: "6px 0",
             }}
-            title="Delete comment"
           >
-            🗑️
-          </button>
-        )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <strong>{c.username}</strong>: {c.text}
+              </div>
+              {(c.username === currentUser || photoId.includes(`/${currentUser}/`)) && (
+                <button
+                  onClick={() => handleDelete(c.commentId)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "red",
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                    marginLeft: 8,
+                  }}
+                  title="Delete comment"
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "flex-start",
+                alignItems: "center",
+                marginTop: 4,
+                gap: 12, // spacing between buttons
+              }}
+            >
+              {["👍", "❤️", "🔥"].map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => handleReact(c.commentId, emoji)}
+                  style={{
+                    all: "unset",             // 👈 completely removes default button behavior
+                    cursor: "pointer",
+                    fontSize: "1.2rem",
+                    padding: "2px 6px",
+                    borderRadius: 6,
+                    backgroundColor: "#f1f1f1",
+                    display: "inline-flex",  // 👈 forces inline layout inside flex
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                  title={`React with ${emoji}`}
+                >
+                  {emoji} {c.reactions?.[emoji] || 0}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+
       </div>
-    ))}
-  </div>
       <div style={{ marginTop: 4 }}>
         <textarea
           value={text}
