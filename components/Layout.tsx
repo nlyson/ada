@@ -119,6 +119,7 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
             <li><Link href="/scoreboard" onClick={handleMenuClick}>📊 High Scores</Link></li>
             <li><Link href="/about_me" onClick={handleMenuClick}>👤 About Me</Link></li>
             <li><Link href="/settings" onClick={handleMenuClick}>⚙️ Settings</Link></li>
+            <li><Link href="/feedback" onClick={handleMenuClick}>🐞 Report a Bug / Send Feedback</Link></li>
             {signOut && (
               <li style={{ marginTop: "1rem" }}>
                 <button
