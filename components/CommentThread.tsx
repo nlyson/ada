@@ -20,11 +20,12 @@ type Comment = {
 type Props = {
   photoId: string;
   currentUser: string;
+  accountTier?: string;
 };
 
 
 
-export const CommentThread: React.FC<Props> = ({ photoId, currentUser }) => {
+export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTier }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState("");
   const hasMarkedRef = useRef(false);
@@ -87,6 +88,8 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser }) => {
   };
 
   const postComment = async () => {
+    if (!currentUser || accountTier !== "premium") return;
+
     try {
       const res = await invokeLambdaIam({
         url: ADD_COMMENT_URL,
@@ -195,17 +198,23 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser }) => {
         ))}
 
       </div>
-      <div style={{ marginTop: 4 }}>
-        <textarea
-          value={text}
-          placeholder="Leave a comment"
-          onChange={(e) => setText(e.target.value)}
-          style={{ width: "100%", height: 50 }}
-        />
-        <button disabled={!text.trim()} onClick={postComment}>
-          Post Comment
-        </button>
-      </div>
+      {currentUser && accountTier === "premium" ? (
+        <div style={{ marginTop: 4 }}>
+          <textarea
+            value={text}
+            placeholder="Leave a comment"
+            onChange={(e) => setText(e.target.value)}
+            style={{ width: "100%", height: 50 }}
+          />
+          <button disabled={!text.trim()} onClick={postComment}>
+            Post Comment
+          </button>
+        </div>
+      ) : (
+        <p style={{ fontStyle: "italic", color: "#666", marginTop: 8 }}>
+          🔒 Only premium members can post comments.
+        </p>
+      )}
     </div>
   );
 };

@@ -9,7 +9,6 @@ type Prompt = {
 type Props = {
   username: string;
   isOwner: boolean;
-  unlockedCount: number;
   submissions: { [promptId: string]: string };
   prompts: Prompt[];
   results: { [promptId: string]: { score: number; rubric: any; feedback: string } };
@@ -17,19 +16,20 @@ type Props = {
   onUpload: (promptId: string, file: File) => void;
   accountTier?: string;
   scavengerRetries?: number;
+  startDate: string;
 };
 
 export const ScavengerHuntGrid: React.FC<Props> = ({
   username,
   isOwner,
-  unlockedCount,
   submissions,
   prompts,
   results,
   loadingMap,
   onUpload,
   accountTier,
-  scavengerRetries
+  scavengerRetries,
+  startDate
 }) => {
   const [openFeedback, setOpenFeedback] = useState<string | null>(null);
 
@@ -38,6 +38,14 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
   const retryLimitReached = accountTier === "premium" && retriesUsed >= maxRetries;
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
 
+  const start = new Date(startDate);
+  const today = new Date();
+  const millisPerDay = 1000 * 60 * 60 * 24;
+
+  const unlockedCount = Math.max(
+    0,
+    Math.floor((today.getTime() - start.getTime()) / millisPerDay) + 1
+  );
 
   return (
     <div style={{ width: "100%", overflowX: "hidden" }}>
@@ -46,6 +54,9 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
         🔁 <strong>Retries used:</strong> {retriesUsed} / {maxRetries}
       </div>
     )}
+    <p style={{ fontSize: "0.85rem", marginBottom: 12 }}>
+    📅 {Math.min(unlockedCount, prompts.length)} of {prompts.length} days unlocked
+    </p>
       <div
         style={{
           display: "grid",

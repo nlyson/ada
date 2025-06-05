@@ -4,6 +4,15 @@ import { useRouter } from "next/router";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
 const CREATE_USER_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/create_user_with_email";
+const FETCH_FEEDBACK_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/list_feedback";
+
+type FeedbackEntry = {
+  feedbackId: string;
+  username: string;
+  description: string;
+  timestamp: string;
+  resolved: boolean;
+};
 
 export default function AdminPage() {
   const [username, setUsername] = useState("");
@@ -11,9 +20,10 @@ export default function AdminPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [feedbackList, setFeedbackList] = useState<FeedbackEntry[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
   const router = useRouter();
 
-  // ✅ Admin access protection
   useEffect(() => {
     getCurrentUser()
       .then((user) => {
@@ -23,6 +33,8 @@ export default function AdminPage() {
         }
       })
       .catch(() => router.push("/"));
+
+    fetchFeedback();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,8 +74,23 @@ export default function AdminPage() {
     }
   };
 
+  const fetchFeedback = async () => {
+    try {
+      const res = await invokeLambdaIam({
+        url: FETCH_FEEDBACK_URL,
+        method: "POST",
+        body: {},
+      });
+      setFeedbackList(res.feedbackList || []);
+    } catch (err) {
+      console.error("Failed to fetch feedback", err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
   return (
-    <div>
+    <div style={{ padding: "2rem", maxWidth: 800, margin: "auto" }}>
       <h1>🛠️ Admin Panel</h1>
       <p>Invite a new user by entering their username and email. They will receive a verification email from Cognito.</p>
 
@@ -109,6 +136,32 @@ export default function AdminPage() {
 
       {status && <p style={{ color: "green", marginTop: "1rem" }}>{status}</p>}
       {error && <p style={{ color: "red", marginTop: "1rem" }}>{error}</p>}
+
+      <hr style={{ margin: "2rem 0" }} />
+
+      <h2>🐞 Submitted Feedback</h2>
+      {feedbackLoading ? (
+        <p>Loading feedback...</p>
+      ) : (
+        feedbackList.map((fb) => (
+          <div
+            key={fb.feedbackId}
+            style={{
+              border: "1px solid #ccc",
+              borderRadius: 8,
+              padding: "1rem",
+              marginBottom: "1rem",
+              backgroundColor: fb.resolved ? "#e8f5e9" : "#fffde7",
+            }}
+          >
+            <strong>{fb.username}</strong> ({new Date(fb.timestamp).toLocaleString()})
+            <p style={{ marginTop: 8 }}>{fb.description}</p>
+            <p style={{ fontSize: 14, color: fb.resolved ? "green" : "orange" }}>
+              Status: {fb.resolved ? "✅ Resolved" : "🕐 Unresolved"}
+            </p>
+          </div>
+        ))
+      )}
     </div>
   );
 }
