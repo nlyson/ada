@@ -207,7 +207,7 @@ const UserUploads: React.FC<Props> = ({
                     </span>
                   )}
 
-                  <CommentThread photoId={key} currentUser={viewerUsername} />
+                  <CommentThread photoId={key} currentUser={viewerUsername} accountTier={accountTier} />
 
                   {caption && (
                     <p style={{

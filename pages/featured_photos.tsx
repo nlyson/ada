@@ -14,8 +14,9 @@ type FeaturedPhoto = {
   accountTier: string;
 };
 
-const FEATURED_LAMBDA_URL =
-  "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
+const FEATURED_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
+
+const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
 
 const FeaturedPhotos: React.FC = () => {
   const [photos, setPhotos] = useState<FeaturedPhoto[]>([]);
@@ -23,6 +24,8 @@ const FeaturedPhotos: React.FC = () => {
   const [error, setError] = useState("");
   const [currentUsername, setCurrentUsername] = useState<string>("");
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+  const [viewerAccountTier, setViewerAccountTier] = useState("free");
+
 
   useEffect(() => {
     const fetchPhotos = async () => {
@@ -50,8 +53,16 @@ const FeaturedPhotos: React.FC = () => {
       try {
         const user = await getCurrentUser();
         setCurrentUsername(user.username);
+
+        const res = await invokeLambdaIam({
+          url: GET_PROFILE_URL,
+          method: "POST",
+          body: { username: user.username },
+        });
+
+        setViewerAccountTier(res.accountTier || "free");
       } catch (err) {
-        console.error("Failed to get current user", err);
+        console.error("Failed to get current user or tier", err);
       }
     };
 
@@ -155,7 +166,7 @@ const FeaturedPhotos: React.FC = () => {
               <div style={{ fontSize: "0.75rem", marginTop: 4, color: "#555" }}>
                 👁️ {photo.views} views
               </div>
-              <CommentThread photoId={photo.photoId} currentUser={currentUsername} />
+              <CommentThread photoId={photo.photoId} currentUser={currentUsername} accountTier={viewerAccountTier}/>
               {selectedPhotoUrl && (
                 <PhotoModal imageUrl={selectedPhotoUrl} onClose={() => setSelectedPhotoUrl(null)} />
               )}

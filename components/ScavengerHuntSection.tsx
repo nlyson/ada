@@ -88,7 +88,6 @@ const ScavengerHuntSection: React.FC<Props> = ({
       <ScavengerHuntGrid
         username={username}
         isOwner={isOwner}
-        unlockedCount={unlockedCount}
         submissions={progress}
         prompts={scavengerPrompts}
         results={results}
@@ -96,6 +95,7 @@ const ScavengerHuntSection: React.FC<Props> = ({
         onUpload={onUpload}
         accountTier={accountTier}
         scavengerRetries={scavengerRetries}
+        startDate={huntStartDate}
       />
       
     </div>

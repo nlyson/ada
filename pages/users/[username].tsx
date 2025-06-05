@@ -83,7 +83,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   const [scavengerProgress, setScavengerProgress] = useState<{ [promptId: string]: string }>({});
   const [huntUploadLoading, setHuntUploadLoading] = useState<{ [promptId: string]: boolean }>({});
   const [availableHunts, setAvailableHunts] = useState<ScavengerHunt[]>([]);
-  const [selectedHuntId, setSelectedHuntId] = useState("alphabet-hunt-2025");
+  const [selectedHuntId, setSelectedHuntId] = useState("");
 
   const [editProfile, setEditProfile] = useState<UserProfile>({
     username,
@@ -93,6 +93,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   });
 
   const [scavengerResults, setScavengerResults] = useState<{ [promptId: string]: { score: number, rubric: any, feedback: string } }>({});
+  const [userAccountTier, setUserAccountTier] = useState("free");
 
 
   const isOwner = user?.username === username;
@@ -254,14 +255,35 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   useEffect(() => {
     if (!username) return;
 
+    const fetchLoggedInUserProfile = async () => {
+      try {
+        const res = await invokeLambdaIam({
+          url: GET_PROFILE_URL,
+          method: "POST",
+          body: { username: user.username }, // logged-in user
+        });
+        setUserAccountTier(res.accountTier || "free");
+      } catch (err) {
+        console.warn("Could not fetch current user profile — defaulting to free");
+      }
+    };
+
     const fetchAvailableHunts = async () => {
       try {
         const res = await invokeLambdaIam({
           url: LIST_HUNTS_URL,
           method: "POST"
         });
-        const hunts = res || [];
+        const hunts = (res || []).sort((a: ScavengerHunt, b: ScavengerHunt) => {
+          return new Date(b.startDate || "").getTime() - new Date(a.startDate || "").getTime();
+        });
+
         setAvailableHunts(hunts);
+
+        // Optionally auto-select the most recent hunt
+        if (hunts.length > 0 && !selectedHuntId) {
+          setSelectedHuntId(hunts[0].huntId);
+        }
       } catch (err) {
         console.error("Failed to fetch hunt list:", err);
       }
@@ -351,7 +373,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
 
 
-
+    fetchLoggedInUserProfile();
     fetchAvailableHunts();
     fetchUnreadFlags();
     fetchProfile();
@@ -466,7 +488,6 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
   const selectedHunt = availableHunts.find(h => h.huntId === selectedHuntId);
 
-
   return (
     <div style={{ padding: 24 }}>
       <h1>
@@ -555,7 +576,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         unreadPhotoIds={unreadPhotoIds}
         onUpload={isOwner ? handleUpload : undefined}
         onDelete={isOwner ? handleDelete : undefined}
-        accountTier={profile?.accountTier}
+        accountTier={userAccountTier}
       />
       <ChallengeSubmissions photos={photos} loading={loading} />
       {profile?.accountTier === "premium" && (
@@ -563,18 +584,19 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           <label htmlFor="hunt-select" style={{ fontWeight: "bold", marginRight: 8 }}>
             🧭 Select Scavenger Hunt:
           </label>
-          <select
-            id="hunt-select"
-            value={selectedHuntId}
-            onChange={(e) => setSelectedHuntId(e.target.value)}
-            style={{ padding: "6px 12px", borderRadius: 6, fontSize: "1rem" }}
-          >
-            {availableHunts.map((hunt) => (
-              <option key={hunt.huntId} value={hunt.huntId}>
-                {hunt.name}
-              </option>
-            ))}
-          </select>
+            <select
+              id="hunt-select"
+              value={selectedHuntId}
+              onChange={(e) => setSelectedHuntId(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 6, fontSize: "1rem" }}
+              disabled={availableHunts.length === 0}
+            >
+              {availableHunts.map((hunt) => (
+                <option key={hunt.huntId} value={hunt.huntId}>
+                  {hunt.name}
+                </option>
+              ))}
+            </select>
         </div>
       )}
       <ScavengerHuntSection
