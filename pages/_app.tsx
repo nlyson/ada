@@ -32,18 +32,24 @@ function AuthenticatedApp({
   useEffect(() => {
     const ensureProfileExists = async () => {
       try {
-        const profile = await invokeLambdaIam({
-          url: GET_PROFILE_URL,
-          method: "POST",
-          body: { username: user?.username },
-        });
+        let profile;
+        try {
+          profile = await invokeLambdaIam({
+            url: GET_PROFILE_URL,
+            method: "POST",
+            body: { username: user?.username },
+          });
 
-        console.log("📄 profile result:", profile);
+          if (profile?.username) {
+            setUserRole(profile.role);
+            return;
+          }
+        } catch (err) {
+          console.warn("No profile found, creating one.");
+        }
 
-
-        if (profile?.username) {
-          setUserRole(profile.role);
-        } else {
+        // Profile missing — create default one
+        try {
           await invokeLambdaIam({
             url: CREATE_USER_URL,
             method: "POST",
@@ -55,6 +61,8 @@ function AuthenticatedApp({
             },
           });
           setUserRole("user");
+        } catch (creationErr) {
+          console.error("❌ Failed to create new user profile:", creationErr);
         }
       } catch (err) {
         console.error("Failed to create or check user profile:", err);
