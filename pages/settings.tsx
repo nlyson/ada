@@ -1,5 +1,7 @@
+// ... all your existing imports
 import React, { useEffect, useState } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+import { ComponentPropsToStylePropsMap } from "@aws-amplify/ui-react";
 
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
 
@@ -13,7 +15,7 @@ type UserProfile = {
   displayName?: string;
   aboutMe?: string;
   favoriteSubjects?: string[];
-  tier?: string;
+  accountTier?: string;
 };
 
 const Settings: React.FC<AppProps> = ({ user }) => {
@@ -40,7 +42,8 @@ const Settings: React.FC<AppProps> = ({ user }) => {
     fetchProfile();
   }, [user.username]);
 
-  const currentTier = profile?.tier?.toLowerCase() === "premium" ? "Premium" : "Free";
+  const currentTier = profile?.accountTier?.toLowerCase() === "premium" ? "Premium" : "Free";
+
 
   const thStyle: React.CSSProperties = {
     padding: "12px",
@@ -56,42 +59,64 @@ const Settings: React.FC<AppProps> = ({ user }) => {
     fontSize: "0.95rem",
   };
 
-  return (
-    <div style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
-      <h1>⚙️ Account Settings</h1>
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <>
-          <p><strong>Username:</strong> {user.username}</p>
-          <p><strong>Current Tier:</strong> {currentTier}</p>
 
-          {currentTier === "Free" ? (
-            <div style={{ marginTop: 16 }}>
-              <p style={{ marginBottom: 8 }}>
-                🚀 <strong>Upgrade to Premium</strong> and unlock enhanced features for just
-                <span style={{ color: "#0070f3", fontWeight: "bold" }}> $7.99/month</span>.
-              </p>
-              <button
-                onClick={() => alert("Upgrade flow coming soon")}
-                style={{
-                  padding: "10px 20px",
-                  backgroundColor: "#0070f3",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Upgrade Now
-              </button>
-            </div>
-          ) : (
-            <p style={{ color: "green", marginTop: 16 }}>
-              ✅ You&apos;re a Premium user. Thank you for supporting Photo Mentor!
+
+return (
+  <div style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
+    <h1>⚙️ Account Settings</h1>
+
+    {loading ? (
+      <div style={{ marginTop: 40, textAlign: "center" }}>
+        <p>Loading your account details...</p>
+        <div style={{
+          margin: "20px auto",
+          border: "4px solid #eee",
+          borderTop: "4px solid #0070f3",
+          borderRadius: "50%",
+          width: 40,
+          height: 40,
+          animation: "spin 1s linear infinite"
+        }} />
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    ) : (
+      <>
+        <p><strong>Username:</strong> {user.username}</p>
+        <p><strong>Current Tier:</strong> {currentTier}</p>
+
+        {currentTier === "Free" ? (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ marginBottom: 8 }}>
+              🚀 <strong>Upgrade to Premium</strong> and unlock enhanced features!
             </p>
-          )}
+            <button
+              onClick={() => alert("Premium access coming soon. Email jamapantel@hotmail.com for beta access.")}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#7c3aed",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Upgrade Coming Soon
+            </button>
+            <p style={{ fontSize: "0.9rem", marginTop: 8 }}>
+              📧 Email <strong>jamapantel@hotmail.com</strong> for early access to premium features.
+            </p>
+          </div>
+        ) : (
+          <p style={{ color: "green", marginTop: 16 }}>
+            ✅ You&apos;re a Premium user. Thank you for supporting Photo Mentor!
+          </p>
+        )}
 
           <h2 style={{ marginTop: 40 }}>💡 Feature Comparison</h2>
           <table style={{
@@ -111,7 +136,7 @@ const Settings: React.FC<AppProps> = ({ user }) => {
               </tr>
             </thead>
             <tbody>
-              {[
+              {[ // unchanged rows
                 ["Challenge uploads", "1 per challenge", "✅ Unlimited"],
                 ["AI feedback", "✅ Basic", "✅ Full rubric + retry tips"],
                 ["Scavenger hunt", "✅ Daily prompt", "✅ Retry + Bonus hunts"],

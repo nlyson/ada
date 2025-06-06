@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import UserSearch from "@/components/UserSearch";
 import { useUnread } from "@/context/UnreadContext";
 
@@ -7,9 +7,10 @@ type LayoutProps = {
   children: React.ReactNode;
   signOut?: () => void;
   user?: { username: string };
+  userRole?: string;
 };
 
-export default function Layout({ children, signOut, user }: LayoutProps) {
+export default function Layout({ children, signOut, user, userRole }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { unreadCount } = useUnread();
 
@@ -17,6 +18,10 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
   const handleMenuClick = () => {
     setMenuOpen(false);
   };
+
+  useEffect(() => {
+    console.log("👀 Layout loaded. user:", user?.username, "role:", userRole);
+  }, [userRole]);
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f9f9f9" }}>
@@ -102,11 +107,11 @@ export default function Layout({ children, signOut, user }: LayoutProps) {
                   </Link>
                 </li>
 
-                {user.username === "jama" || user.username === "nathan" ? (
-                  <li>
-                    <Link href="/admin" onClick={handleMenuClick}>🛠️ Admin Panel</Link>
-                  </li>
-                ) : null}
+              {userRole === "admin" && (
+                <li>
+                  <Link href="/admin" onClick={handleMenuClick}>🛠️ Admin Panel</Link>
+                </li>
+              )}
               </>
             )}
             <li><Link href="/featured_photos" onClick={handleMenuClick}>🌟 Featured Photos</Link></li>
