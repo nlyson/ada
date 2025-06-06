@@ -29,9 +29,9 @@ export default function Home() {
         <Image
           src="/photo_mentor_home.png"
           alt="Photo Mentor Logo"
-          layout="responsive"
           width={400}
           height={400}
+          priority
           style={{
             width: "100%",
             height: "auto",
