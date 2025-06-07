@@ -5,6 +5,8 @@ const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/
 const CHARGE_USER_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/charge_user";
 const SQUARE_APP_ID = "sq0idp-hqKwiPOKy2CKoEqGyba3Vw";
 const LOCATION_ID = "04570PQF9Q7MW";
+//const SQUARE_APP_ID = "sandbox-sq0idb-WQkqJtRLCweiTBkuYcIQXA";    for sandbox
+//const LOCATION_ID = "LHJCQ86R6K6QR";  for sandbox
 
 type AppProps = {
   signOut: () => void;
