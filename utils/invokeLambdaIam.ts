@@ -7,14 +7,18 @@ type InvokeLambdaOptions = {
   url: string;
   method?: 'GET' | 'POST';
   body?: Record<string, any>;
-  responseType?: 'json' | 'text'; // ✅ New
+  responseType?: 'json' | 'text';
+  retries?: number;       // ✅ Optional retry count
+  delayMs?: number;       // ✅ Optional delay between retries
 };
 
 export async function invokeLambdaIam({
   url,
   method = 'POST',
   body,
-  responseType = 'json', // ✅ Default
+  responseType = 'json',
+  retries = 2,             // ✅ Default: 2 retries
+  delayMs = 750,           // ✅ Default: 750ms delay
 }: InvokeLambdaOptions) {
   const { credentials } = await fetchAuthSession();
 
@@ -47,17 +51,35 @@ export async function invokeLambdaIam({
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const signedRequest = await signer.sign(request);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const signedRequest = await signer.sign(request);
 
-  const response = await fetch(url, {
-    method,
-    headers: signedRequest.headers as Record<string, string>,
-    body: request.body,
-  });
+      const response = await fetch(url, {
+        method,
+        headers: signedRequest.headers as Record<string, string>,
+        body: request.body,
+      });
 
-  if (!response.ok) {
-    throw new Error(`Lambda request failed: ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 503 && attempt < retries) {
+          await new Promise((res) => setTimeout(res, delayMs));
+          continue;
+        }
+        throw new Error(`Lambda request failed: ${response.status}`);
+      }
+
+      return responseType === 'text' ? response.text() : response.json();
+    } catch (err: any) {
+      const isRetryable =
+        err?.message?.includes('503') || err?.message?.includes('network') || err?.message?.includes('fetch');
+      if (attempt < retries && isRetryable) {
+        await new Promise((res) => setTimeout(res, delayMs));
+        continue;
+      }
+      throw err;
+    }
   }
 
-  return responseType === 'text' ? response.text() : response.json(); // ✅ Flexible response
+  throw new Error('invokeLambdaIam: retries exhausted');
 }

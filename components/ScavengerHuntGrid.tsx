@@ -70,7 +70,8 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
           const url = submissions[prompt.promptId];
           const isLoading = loadingMap[prompt.promptId];
 
-          const isFreeAndSubmitted = accountTier !== "premium" && !!url;
+          console.log('------------------url', url)
+          
           const canUpload =
             isOwner &&
             isUnlocked &&

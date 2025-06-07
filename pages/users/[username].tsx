@@ -181,6 +181,8 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         },
       });
 
+      console.log('---------------hunt id', selectedHuntId)
+
       // Step 3: Review / score the photo
       await invokeLambdaIam({
         url: REVIEW_PHOTO_LAMBDA_URL,
