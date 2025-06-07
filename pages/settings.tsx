@@ -207,7 +207,7 @@ const handlePayment = async () => {
 
           {isPremium && (
             <p style={{ color: "green", marginTop: 16 }}>
-              ✅ You're a Premium user. Thank you!
+              ✅ You&apos;re a Premium user. Thank you!
             </p>
           )}
 
