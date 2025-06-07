@@ -7,6 +7,7 @@ import Link from "next/link";
 const UPLOAD_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/upload_photo";
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
+const GET_FEEDBACK_USAGE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_feedback_usage";
 
 type AppProps = {
   signOut: () => void;
@@ -25,6 +26,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [accountTier, setAccountTier] = useState<string>("free");
+  const [usage, setUsage] = useState<{ used: number; remaining: number; limit: number } | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -39,8 +41,28 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         console.error("Failed to fetch account tier:", err);
       }
     };
+
     fetchProfile();
-  }, [user.username]);
+    const fetchUsage = async () => {
+      try {
+        const result = await invokeLambdaIam({
+          url: GET_FEEDBACK_USAGE_URL,
+          method: "POST",
+          body: {
+            username: user.username,
+            accountTier: accountTier,
+          },
+        });
+        setUsage(result);
+      } catch (err) {
+        console.error("Failed to fetch usage stats", err);
+      }
+    };
+
+  if (user.username && accountTier) {
+    fetchUsage();
+  }
+  }, [user.username, accountTier]);
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
@@ -128,6 +150,12 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
 
         <h2 style={{ fontSize: "1.8rem", margin: "1.5rem 0 1rem" }}>Photo Feedback</h2>
 
+          {usage && (
+            <div style={{ fontSize: 14, marginBottom: 8, color: "#4b5563" }}>
+              📸 Feedbacks used this week: <strong>{usage.used}</strong> of {usage.limit}
+            </div>
+          )}
+
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
           <label htmlFor="fileInput" style={{ display: "inline-block", padding: "0.75rem 1.5rem", backgroundColor: "#e5e7eb", borderRadius: "9999px", fontWeight: 500, cursor: "pointer" }}>
             📷 Choose a Photo
@@ -143,8 +171,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
           <div style={{ backgroundColor: "#fffbe6", border: "1px solid #facc15", borderRadius: 12, padding: 16, marginTop: 32, textAlign: "left" }}>
             <p style={{ margin: 0, fontSize: 14 }}>🌟 <strong>Want the full critique?</strong> Premium users unlock:</p>
             <ul style={{ fontSize: 14, paddingLeft: 20, marginTop: 8 }}>
-              <li>✅ Full rubric scoring on every upload</li>
-              <li>📚 Access to your entire feedback history</li>
+              <li>✅ 50 photo reviews per week </li>
               <li>🧠 Direct input from <strong>Jama Pantel</strong> — founder & expert photographer</li>
             </ul>
             <Link href="/settings" legacyBehavior>

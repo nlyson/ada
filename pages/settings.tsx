@@ -232,13 +232,14 @@ const handlePayment = async () => {
             </thead>
             <tbody>
               {[
-                ["Challenge uploads", "1 per challenge", "✅ Unlimited"],
-                ["AI feedback", "✅ Basic", "✅ Full rubric + retry tips"],
+                ["Challenge uploads", "1 per challenge", "✅ Unlimited + Challenge Archive"],
+                ["AI feedback", "✅ Basic - 3 per week", "✅ Full rubric + retry tips"],
+                ["Max Image Upload Size", "✅ 2 MB", "✅ 50 MB"],
                 ["Scavenger hunt", "✅ Daily prompt", "✅ Retry + Bonus hunts"],
-                ["Photo uploads", "✅ Up to 10", "✅ Up to 100"],
-                ["User stats", "✅ Basic", "✅ Trends + high scores"],
+                ["Photo uploads", "✅ Up to 5", "✅ Up to 100"],
+                ["User stats", "❌", "✅ Trends + high scores"],
                 ["Profile customization", "✅ Bio & avatar", "✅ Themes + header"],
-                ["Comment threads", "✅ Yes", "✅ Priority visibility"],
+                ["Comment threads", "❌", "✅ Comment on user photos"],
                 ["Feedback analytics", "❌", "✅ Breakdown per rubric"],
                 ["Monthly themed events", "❌", "✅ Exclusive access"],
               ].map(([feature, free, premium]) => (

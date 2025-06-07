@@ -9,6 +9,9 @@ const MARK_COMMENT_AS_READ = "https://x69ndosila.execute-api.us-east-1.amazonaws
 const MARK_COMMENT_AS_UNREAD = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/mark_unread_comment"
 const REACT_TO_COMMENT = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/react_to_comment"
 
+const ENABLE_COMMENT_REACTIONS = false;
+
+
 type Comment = {
   commentId: string;
   username: string;
@@ -173,7 +176,7 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
                 gap: 12, // spacing between buttons
               }}
             >
-              {["👍", "❤️", "🔥"].map((emoji) => (
+              {ENABLE_COMMENT_REACTIONS && ["👍", "❤️", "🔥"].map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => handleReact(c.commentId, emoji)}
