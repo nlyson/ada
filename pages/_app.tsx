@@ -28,6 +28,7 @@ function AuthenticatedApp({
 }) {
   const [userRole, setUserRole] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const showWelcome = true;
 
   useEffect(() => {
     const ensureProfileExists = async () => {
@@ -92,6 +93,19 @@ function AuthenticatedApp({
   return (
     <UnreadProvider user={user}>
       <Layout user={user} signOut={safeSignOut} userRole={userRole}>
+        {showWelcome && (
+          <div style={{
+            backgroundColor: "#fff3cd",
+            color: "#856404",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+            margin: "1rem 0",
+            border: "1px solid #ffeeba",
+            textAlign: "center"
+          }}>
+      👋    Thanks for joining early access! Some features (like payments) aren&apos;t live yet, and there may still be bugs or missing polish. If you run into any issues or have ideas, please report them — we&apos;re building this for the community, and your feedback really matters. ❤️ Your future support helps us cover maintenance costs too!
+          </div>
+        )}
         <Component signOut={safeSignOut} user={user} />
       </Layout>
     </UnreadProvider>
