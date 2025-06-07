@@ -86,9 +86,6 @@ const Creations: React.FC<AppProps> = ({ signOut, user }) => {
         }
       });
 
-
-      console.log(result);
-
       await fetchUploads(); // Refresh list
       setImage(null); // Clear file input
     } catch (error) {

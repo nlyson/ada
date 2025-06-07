@@ -69,8 +69,6 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
           const isUnlocked = day <= unlockedCount;
           const url = submissions[prompt.promptId];
           const isLoading = loadingMap[prompt.promptId];
-
-          console.log('------------------url', url)
           
           const canUpload =
             isOwner &&

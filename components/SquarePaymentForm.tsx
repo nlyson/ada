@@ -31,8 +31,6 @@ const TestPayment: React.FC = () => {
 
     const initSquare = async () => {
       try {
-        console.log("App ID:", SQUARE_APP_ID);
-
         const paymentsInstance = window.Square!.payments(SQUARE_APP_ID, LOCATION_ID);
         setPayments(paymentsInstance);
 

@@ -26,7 +26,6 @@ const PodcastPage: React.FC<PodcastPageProps> = ({ signOut, user }) => {
           method: "GET",
           responseType: "text", // important: don't try to parse as JSON
         });        
-        console.log("📥 RSS Feed received", xmlText.slice(0, 200));
 
         const parser = new DOMParser();
         const xml = parser.parseFromString(xmlText, "application/xml");
@@ -36,7 +35,6 @@ const PodcastPage: React.FC<PodcastPageProps> = ({ signOut, user }) => {
           const title = item.querySelector("title")?.textContent || "Untitled";
           const enclosureUrl = item.querySelector("enclosure")?.getAttribute("url") || "";
 
-          console.log("🎯 Enclosure URL:", enclosureUrl);
 
           // Extract Buzzsprout episode ID from URL
           const match = enclosureUrl.match(/buzzsprout\.com\/\d+\/episodes\/(\d+)/);
@@ -45,7 +43,6 @@ const PodcastPage: React.FC<PodcastPageProps> = ({ signOut, user }) => {
           return { title, buzzsproutId };
         });
 
-        console.log("✅ Parsed Episodes:", parsedEpisodes);
         setEpisodes(parsedEpisodes.filter(ep => ep.buzzsproutId));
       } catch (err) {
         console.error("❌ Error loading or parsing podcast feed:", err);

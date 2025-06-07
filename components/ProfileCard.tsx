@@ -34,8 +34,6 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       ? JSON.parse(response)
       : response;
 
-    console.log("📸 Uploading to:", uploadUrl);
-
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
@@ -49,7 +47,6 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
 
     const publicUrl = `https://picture-this-storage.s3.amazonaws.com/${key}?t=${Date.now()}`;
-    console.log("✅ Uploaded to:", publicUrl);
     setProfileUrl(publicUrl);
   } catch (err) {
     console.error("❌ Profile pic upload error:", err);
