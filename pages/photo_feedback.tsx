@@ -105,8 +105,6 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         },
       });
 
-      console.log("🧠 Feedback result:", result);
-
     const feedbackResult: FeedbackResult = {
       feedback: result?.feedback || result?.result || "No feedback.",
       score: result?.score,

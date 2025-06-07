@@ -72,9 +72,6 @@ function AuthenticatedApp({
       }
     };
 
-    console.log("👤 user:", user);
-
-
     if (user) {
       ensureProfileExists();
     }
@@ -103,8 +100,7 @@ function AuthenticatedApp({
             border: "1px solid #ffeeba",
             textAlign: "center"
           }}>
-      👋    Thanks for joining early access! Some features (like payments) aren&apos;t live yet, and there may still be bugs or missing polish. If you run into any issues or have ideas, please report them — we&apos;re building this for the community, and your feedback really matters. ❤️ Your future support helps us cover maintenance costs too!
-          </div>
+👋 Thanks for joining early access! Some features are still being refined, and you may encounter occasional bugs or missing polish. If you run into any issues or have ideas, please report them — we&apos;re building this for the community, and your feedback really matters. ❤️ Payments are now live, and your support helps us cover maintenance costs and continue building great features!          </div>
         )}
         <Component signOut={safeSignOut} user={user} />
       </Layout>
