@@ -114,16 +114,16 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
                 <>
                 {url && (
                   <img
-                    src={url}
+                    src={`${url}?t=${Date.now()}`}
                     alt={prompt.promptId}
-                    onClick={() => setSelectedPhotoUrl(url)} // 👈 add this
+                    onClick={() => setSelectedPhotoUrl(`${url}?t=${Date.now()}`)}
                     style={{
                       width: "100%",
                       maxWidth: "100%",
                       height: "auto",
                       borderRadius: 6,
                       display: "block",
-                      cursor: "zoom-in", // 👈 UX hint
+                      cursor: "zoom-in",
                     }}
                   />
                 )}
