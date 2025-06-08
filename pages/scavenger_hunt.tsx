@@ -13,7 +13,7 @@ const GET_USER_HUNT_PROGRESS_URL = "https://x69ndosila.execute-api.us-east-1.ama
 const GET_SCAVENGER_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_scavenger_results";
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_stats";
-const SUBMIT_HUNT_PHOTO_URL = TEST_LAMBDA_URL   //"https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit_hunt_photo";
+const SUBMIT_HUNT_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
 
 
 const STORAGE_URL = "https://picture-this-storage.s3.amazonaws.com";
