@@ -6,15 +6,22 @@ const SUBMIT_CHALLENGE_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.am
 const FETCH_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_results";
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_stats";
+const GET_CURRENT_CHALLENGE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_current_challenge";
 
 type AppProps = {
   signOut: () => void;
   user: { username: string };
 };
 
-const challengeId = "weekly_01"; // 👈 replace hardcoded `CHALLENGE_ID` use with this
+type Challenge = {
+  challengeId: string;
+  title: string;
+  description?: string;
+  rubric?: Record<string, number>;
+};
 
 const Challenge: React.FC<AppProps> = ({ user }) => {
+  const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
   const [image, setImage] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [status, setStatus] = useState("");
@@ -27,24 +34,37 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   const submissionCount = results.length;
 
   useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const result = await invokeLambdaIam({
+    async function init() {
+      const [profileRes, challengeRes] = await Promise.all([
+        invokeLambdaIam({
           url: "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile",
           method: "POST",
           body: { username: user.username },
-        });
-        setAccountTier(result.accountTier || "free");
+        }),
+        invokeLambdaIam({
+          url: GET_CURRENT_CHALLENGE_URL,
+          method: "POST",
+        }),
+      ]);
+
+      setAccountTier(profileRes.accountTier || "free");
+
+      try {
+        const parsedChallenge: Challenge = {
+          challengeId: challengeRes.challengeId.S,
+          title: challengeRes.title.S,
+          description: challengeRes.description?.S,
+          rubric: challengeRes.rubric?.S ? JSON.parse(challengeRes.rubric.S) : undefined,
+        };
+        setCurrentChallenge(parsedChallenge);
       } catch (err) {
-        console.error("Failed to fetch user profile:", err);
+        console.error("Failed to parse challenge:", err);
       }
+
+      await handleFetchResults();
+      await fetchSubmissionCount();
     }
 
-    async function init() {
-      await fetchProfile();
-      await handleFetchResults();
-      await fetchSubmissionCount(); // ✅ add this
-    }
     init();
   }, []);
 
@@ -55,9 +75,9 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   async function fetchSubmissionCount() {
     try {
       const res = await invokeLambdaIam({
-        url: "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_results",
+        url: FETCH_RESULTS_URL,
         method: "POST",
-        body: { username: user.username }
+        body: { username: user.username },
       });
       const total = Array.isArray(res) ? res.length : 0;
       setTotalChallengeSubmissions(total);
@@ -74,11 +94,12 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       reader.onerror = reject;
     });
 
+  const maxRetries = accountTier === "premium" ? 10 : 1;
+
+
   const handleSubmit = async () => {
-    if (!image) {
-      alert("Please select an image.");
-      return;
-    }
+    if (!image || !currentChallenge) return;
+
     const maxSizeMB = accountTier === "premium" ? 50 : 2;
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
@@ -86,7 +107,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
       return;
     }
-    const maxRetries = accountTier === "premium" ? 100 : 1;
+
 
     if (submissionCount >= maxRetries) {
       alert(`You’ve reached the maximum number of submissions for this challenge.`);
@@ -105,14 +126,13 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         body: {
           action: "submit",
           username: user.username,
-          challengeId: challengeId,
+          challengeId: currentChallenge.challengeId,
           fileName: image.name,
           fileContent: base64,
           fileType: image.type,
           caption,
         },
       });
-
 
       setStatus(result.message || result.error);
       setImage(null);
@@ -127,7 +147,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
             s3Key: result.s3Key,
             rubric: true,
             username: user.username,
-            challengeId: challengeId,
+            challengeId: currentChallenge.challengeId,
           },
         });
       }
@@ -137,12 +157,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         method: "POST",
         body: {
           username: user.username,
-          updates: {
-            challengesCompleted: {
-              op: "increment",
-              value: 1,
-            },
-          },
+          updates: { challengesCompleted: { op: "increment", value: 1 } },
         },
       });
 
@@ -151,10 +166,8 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         method: "POST",
         body: {
           username: user.username,
-          updates: {
-            recomputeChallengeStats: { op: "recomputeChallengeStats" }
-          }
-        }
+          updates: { recomputeChallengeStats: { op: "recomputeChallengeStats" } },
+        },
       });
 
       await invokeLambdaIam({
@@ -162,14 +175,11 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         method: "POST",
         body: {
           username: user.username,
-          updates: {
-            streakDays: { op: "updateStreak" }
-          }
-        }
+          updates: { streakDays: { op: "updateStreak" } },
+        },
       });
 
-      await handleFetchResults(); // 🔄 refresh results after scoring
-
+      await handleFetchResults();
     } catch (err) {
       console.error(err);
       setStatus("Submission failed.");
@@ -186,31 +196,33 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
         method: "POST",
         body: { username: user.username },
       });
-
-      if (Array.isArray(res)) {
-        setResults(res);
-        setStatus("Results loaded.");
-      } else {
-        setStatus("No results found.");
-      }
+      setResults(Array.isArray(res) ? res : []);
+      setStatus("Results loaded.");
     } catch (err) {
       console.error("Error fetching results:", err);
       setStatus("Failed to fetch results.");
     }
   };
 
+  if (!currentChallenge) {
+    return <div style={{ padding: "2rem", textAlign: "center" }}>Loading current challenge...</div>;
+  }
+
   const hasSubmitted = results.length > 0;
+
   return (
     <div style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", backgroundColor: "#fffaf0", minHeight: "100vh" }}>
-      <h1 style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-        📸 Weekly Challenge: <em>Reflections in Nature</em>
-      </h1>
+      <p style={{ fontSize: "0.85rem", color: "#666", marginTop: 4 }}>
+        {submissionCount}/{maxRetries} submissions used
+      </p>
+      <h1>📸 Weekly Challenge: <em>{currentChallenge.title}</em></h1>
+      {currentChallenge.description && <p>{currentChallenge.description}</p>}
 
+      {/* Upload UI */}
       <section style={{ marginBottom: "2rem" }}>
-        {submissionCount < (accountTier === "premium" ? 100 : 1) ? (
+        {!hasSubmitted || accountTier === "premium" ? (
           <>
             <input type="file" accept="image/*" onChange={handleChange} />
-            <br />
             <input
               type="text"
               placeholder="Caption (optional)"
@@ -221,7 +233,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
             <p style={{ fontSize: "0.85rem", color: "#666", marginTop: 4 }}>
               Max file size: {accountTier === "premium" ? "50MB" : "2MB"}
             </p>
-            <div style={{ marginTop: 16, display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <div style={{ marginTop: 16 }}>
               <button
                 onClick={handleSubmit}
                 disabled={!image || loading}
@@ -239,86 +251,53 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
             </div>
           </>
         ) : (
-        <div style={{ marginTop: 12 }}>
-          <p style={{ fontStyle: "italic", color: "#555" }}>
-            You&apos;ve already submitted a photo for this challenge.
-          </p>
-          <div
-            style={{
-              marginTop: 12,
-              backgroundColor: "#fff0f0",
-              padding: "12px 16px",
-              borderRadius: 8,
-              border: "1px solid #ffcccc",
-            }}
-          >
-          {accountTier !== "premium" && hasSubmitted && (
-            <div style={{ marginTop: 12 }}>
-              <div
-                style={{
-                  backgroundColor: "#fff0f0",
-                  padding: "12px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #ffcccc",
-                }}
-              >
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontStyle: "italic", color: "#555" }}>
+              You&apos;ve already submitted a photo for this challenge.
+            </p>
+            {accountTier !== "premium" && (
+              <div style={{ marginTop: 12, backgroundColor: "#fff0f0", padding: 16, borderRadius: 8, border: "1px solid #ffcccc" }}>
                 <p style={{ margin: 0, fontSize: 14 }}>
-                  Want to try again with a better photo? 🚀
-                  <br />
-                  <strong>Upgrade to Premium</strong> for{" "}
-                  <span style={{ color: "#228b22" }}>unlimited challenge submissions</span>!
+                  Upgrade to Premium for <strong>more challenge submissions</strong>! 🚀
                 </p>
+                <Link href="/settings" legacyBehavior>
+                  <a style={{ display: "inline-block", marginTop: 8, padding: "8px 16px", backgroundColor: "#228b22", color: "white", borderRadius: 6, fontWeight: "bold", fontSize: 14 }}>
+                    Upgrade Now
+                  </a>
+                </Link>
               </div>
-            </div>
-          )}
-            <Link href="/settings" legacyBehavior>
-              <a
-                style={{
-                  display: "inline-block",
-                  marginTop: 8,
-                  padding: "8px 16px",
-                  backgroundColor: "#228b22",
-                  color: "white",
-                  borderRadius: 6,
-                  textDecoration: "none",
-                  fontWeight: "bold",
-                  fontSize: 14,
-                }}
-              >
-                Upgrade Now
-              </a>
-            </Link>
+            )}
           </div>
-        </div>
         )}
       </section>
 
+      {/* Judging Criteria */}
       <section style={{ backgroundColor: "#f0f8ff", borderRadius: 8, padding: 16 }}>
         <h2>📋 Judging Criteria</h2>
         <ul style={{ paddingLeft: 20, fontSize: 14 }}>
-          <li><strong>🎨 Composition</strong> – Framing, balance, visual flow (0–25 pts)</li>
-          <li><strong>💡 Lighting</strong> – Exposure, highlights, shadows (0–25 pts)</li>
-          <li><strong>🎯 Subject & Creativity</strong> – Originality, impact, theme (0–25 pts)</li>
-          <li><strong>🔍 Focus & Clarity</strong> – Sharpness, depth of field (0–25 pts)</li>
+          {currentChallenge.rubric
+            ? Object.entries(currentChallenge.rubric).map(([key, val]) => (
+                <li key={key}><strong>{key}</strong>: {val} pts</li>
+              ))
+            : (
+              <>
+                <li><strong>🎨 Composition</strong> – Framing, balance, visual flow (0–25 pts)</li>
+                <li><strong>💡 Lighting</strong> – Exposure, highlights, shadows (0–25 pts)</li>
+                <li><strong>🎯 Subject & Creativity</strong> – Originality, impact, theme (0–25 pts)</li>
+                <li><strong>🔍 Focus & Clarity</strong> – Sharpness, depth of field (0–25 pts)</li>
+              </>
+            )}
         </ul>
         <p style={{ fontSize: 14, marginTop: 8 }}>
           Your total score is out of 100. Personalized feedback appears below after submission.
         </p>
       </section>
 
+      {/* Results */}
       {results.length > 0 && (
         <section style={{ marginTop: 32 }}>
           <h2>📊 Your Challenge Results</h2>
-          <div
-            style={{
-              marginTop: 20,
-              padding: 16,
-              backgroundColor: "#f5fff5",
-              borderRadius: 8,
-              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-              textAlign: "center",
-            }}
-          >
+          <div style={{ marginTop: 20, padding: 16, backgroundColor: "#f5fff5", borderRadius: 8, textAlign: "center" }}>
             <img
               src={results[0].imageUrl}
               alt="Your submission"
