@@ -29,40 +29,37 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
   const [usage, setUsage] = useState<{ used: number; remaining: number; limit: number } | null>(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfileAndUsage = async () => {
       try {
-        const result = await invokeLambdaIam({
+        const profileResult = await invokeLambdaIam({
           url: GET_PROFILE_URL,
           method: "POST",
           body: { username: user.username },
         });
-        setAccountTier(result.accountTier || "free");
-      } catch (err) {
-        console.error("Failed to fetch account tier:", err);
-      }
-    };
 
-    fetchProfile();
-    const fetchUsage = async () => {
-      try {
-        const result = await invokeLambdaIam({
+        const tier = profileResult.accountTier || "free";
+        setAccountTier(tier);
+
+        const usageResult = await invokeLambdaIam({
           url: GET_FEEDBACK_USAGE_URL,
           method: "POST",
           body: {
             username: user.username,
-            accountTier: accountTier,
+            accountTier: tier,
           },
         });
-        setUsage(result);
+
+        setUsage(usageResult);
       } catch (err) {
-        console.error("Failed to fetch usage stats", err);
+        console.error("Failed to fetch profile or usage info:", err);
       }
     };
 
-  if (user.username && accountTier) {
-    fetchUsage();
-  }
-  }, [user.username, accountTier]);
+    if (user.username) {
+      fetchProfileAndUsage();
+    }
+  }, [user.username]);
+
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {

@@ -69,7 +69,7 @@ const ScoreboardPage: React.FC = () => {
     if (showScavenger && body) fetchScavengerScores();
   }, [selectedHuntId, showScavenger]);
 
-  const ScoreCard = ({ rank, username, score, timestamp, signedUrl }: any) => (
+  const ScoreCard = ({ rank, username, score, timestamp, signedUrl, feedback }: any) => (
     <div
       style={{
         padding: 16,
@@ -77,44 +77,61 @@ const ScoreboardPage: React.FC = () => {
         borderRadius: 10,
         boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
         display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 16,
-        flexWrap: "wrap",
+        flexDirection: "column",
+        gap: 12,
       }}
     >
-      {signedUrl ? (
-        <img
-          src={signedUrl}
-          alt="submission"
-          style={{ width: 100, height: 100, borderRadius: 6, objectFit: "cover" }}
-        />
-      ) : (
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+        {signedUrl ? (
+          <img
+            src={signedUrl}
+            alt="submission"
+            style={{ width: 100, height: 100, borderRadius: 6, objectFit: "cover" }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 100,
+              height: 100,
+              backgroundColor: "#ddd",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 6,
+              fontSize: 12,
+              color: "#666",
+            }}
+          >
+            No image
+          </div>
+        )}
+
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <p style={{ margin: 4 }}><strong>#{rank} – {username}</strong></p>
+          <p style={{ margin: 4 }}>🧮 <strong>Score:</strong> {score}/100</p>
+          <p style={{ margin: 4, fontSize: 12, color: "#666" }}>
+            {new Date(timestamp).toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {feedback && (
         <div
           style={{
-            width: 100,
-            height: 100,
-            backgroundColor: "#ddd",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            marginTop: 8,
+            backgroundColor: "#f0f0f0",
+            padding: 12,
             borderRadius: 6,
-            fontSize: 12,
-            color: "#666",
+            fontSize: 14,
           }}
         >
-          No image
+          <strong>📋 Feedback:</strong>
+          <p style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{feedback}</p>
         </div>
       )}
-      <div style={{ flex: 1, minWidth: 180 }}>
-        <p style={{ margin: 4 }}><strong>#{rank} – {username}</strong></p>
-        <p style={{ margin: 4 }}>🧮 <strong>Score:</strong> {score}</p>
-        <p style={{ margin: 4, fontSize: 12, color: "#666" }}>
-          {new Date(timestamp).toLocaleString()}
-        </p>
-      </div>
     </div>
   );
+
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
