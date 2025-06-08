@@ -10,6 +10,9 @@ import Layout from "@/components/Layout";
 import { UnreadProvider } from "@/context/UnreadContext";
 import { useEffect, useState } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
+import "@aws-amplify/ui-react/styles.css";
+import { motion } from "framer-motion";
+import Image from "next/image";
 
 const CREATE_USER_URL =
   "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/create_user_with_email";
@@ -110,7 +113,66 @@ function AuthenticatedApp({
 
 export default function App({ Component, pageProps, router }: AppProps) {
   return (
-    <Authenticator>
+    <Authenticator
+      components={{
+        Header: () => (
+          <div style={{ textAlign: "center", padding: "2rem 1rem 1rem" }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1 }}
+              style={{
+                maxWidth: 300,
+                margin: "0 auto",
+              }}
+            >
+              <Image
+                src="/photo_mentor_home.png"
+                alt="Photo Mentor Logo"
+                width={300}
+                height={300}
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  borderRadius: "1.5rem",
+                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
+                }}
+              />
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              style={{
+                marginTop: "1.5rem",
+                fontSize: "1.5rem",
+                color: "#b76e79",
+                fontWeight: "bold",
+              }}
+            >
+              Welcome to Photo Mentor
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              style={{
+                fontSize: "1rem",
+                color: "#555",
+                marginTop: "0.75rem",
+                maxWidth: 380,
+                marginLeft: "auto",
+                marginRight: "auto",
+              }}
+            >
+              Sign up or sign in to join challenges, get feedback, and grow your photography skills.
+            </motion.p>
+          </div>
+        ),
+      }}
+    >
       {({ signOut, user }) => (
         <AuthenticatedApp
           Component={Component}
@@ -123,3 +185,4 @@ export default function App({ Component, pageProps, router }: AppProps) {
     </Authenticator>
   );
 }
+
