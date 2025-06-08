@@ -232,7 +232,7 @@ const handlePayment = async () => {
             </thead>
             <tbody>
               {[
-                ["Challenge uploads", "1 per challenge", "✅ Unlimited + Challenge Archive"],
+                ["Challenge uploads", "1 per challenge", "✅ 10 retries per challenge + Challenge Archive"],
                 ["AI feedback", "✅ Basic - 3 per week", "✅ Full rubric + retry tips"],
                 ["Max Image Upload Size", "✅ 2 MB", "✅ 50 MB"],
                 ["Scavenger hunt", "✅ Daily prompt", "✅ Retry + Bonus hunts"],
