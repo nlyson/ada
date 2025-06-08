@@ -291,12 +291,35 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
     async function fetchPhotos() {
       try {
+        // Step 1: Fetch raw user photo results (challenge submissions)
         const res = await invokeLambdaIam({
           url: FETCH_USER_PHOTOS_LAMBDA_URL,
           method: "POST",
           body: { username },
         });
-        setPhotos(res || []);
+
+        // Step 2: Fetch all challenges (for title lookup)
+        const challenges = await invokeLambdaIam({
+          url: "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_all_challenges",
+          method: "GET",
+        });
+
+        const challengeMap: Record<string, string> = {};
+        for (const ch of challenges) {
+          challengeMap[ch.challengeId] = ch.title;
+        }
+
+        // Step 3: Enrich each photo with title (and use optional score, feedback if available)
+        const enriched = res.map((item: any) => ({
+          imageUrl: item.imageUrl,
+          caption: item.caption,
+          challengeId: item.challengeId,
+          title: challengeMap[item.challengeId] || item.challengeId,
+          score: item.score ?? undefined,
+          feedback: item.feedback ?? undefined,
+        }));
+
+        setPhotos(enriched);
       } catch (err) {
         console.error("Failed to fetch user photos:", err);
       }
@@ -578,7 +601,15 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         onDelete={isOwner ? handleDelete : undefined}
         accountTier={userAccountTier}
       />
-      <ChallengeSubmissions photos={photos} loading={loading} />
+      <ChallengeSubmissions
+        photos={photos}
+        loading={loading}
+        username={username}
+        isOwner={isOwner}
+        onDeleteSuccess={(challengeId) => {
+          setPhotos((prev) => prev.filter((p) => p.challengeId !== challengeId));
+        }}
+      />
       {profile?.accountTier === "premium" && (
         <div style={{ marginBottom: 24 }}>
           <label htmlFor="hunt-select" style={{ fontWeight: "bold", marginRight: 8 }}>
