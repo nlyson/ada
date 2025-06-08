@@ -60,13 +60,16 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       } catch (err) {
         console.error("Failed to parse challenge:", err);
       }
-
-      await handleFetchResults();
-      await fetchSubmissionCount();
     }
 
     init();
   }, []);
+
+  useEffect(() => {
+    if (!currentChallenge) return;
+    handleFetchResults();
+    fetchSubmissionCount();
+  }, [currentChallenge]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setImage(e.target.files?.[0] || null);
@@ -191,11 +194,16 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   const handleFetchResults = async () => {
     setStatus("Fetching results...");
     try {
+      if (!currentChallenge) return;
       const res = await invokeLambdaIam({
         url: FETCH_RESULTS_URL,
         method: "POST",
-        body: { username: user.username },
+        body: {
+          username: user.username,
+          challengeId: currentChallenge.challengeId, // ✅ required for filtering
+        },
       });
+      console.log('results', res)
       setResults(Array.isArray(res) ? res : []);
       setStatus("Results loaded.");
     } catch (err) {
