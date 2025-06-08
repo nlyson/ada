@@ -47,16 +47,30 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
     Math.floor((today.getTime() - start.getTime()) / millisPerDay) + 1
   );
 
+  // ✅ Score summary
+  const totalPossible = 3000
+
+  const totalEarned = prompts.reduce((sum, p) => {
+    return results[p.promptId]?.score ? sum + results[p.promptId].score : sum;
+  }, 0);
+
   return (
     <div style={{ width: "100%", overflowX: "hidden" }}>
       {isOwner && accountTier === "premium" && (
-      <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "#444" }}>
-        🔁 <strong>Retries used:</strong> {retriesUsed} / {maxRetries}
-      </div>
-    )}
-    <p style={{ fontSize: "0.85rem", marginBottom: 12 }}>
-    📅 {Math.min(unlockedCount, prompts.length)} of {prompts.length} days unlocked
-    </p>
+        <div style={{ marginBottom: 8, fontSize: "0.85rem", color: "#444" }}>
+          🔁 <strong>Retries used:</strong> {retriesUsed} / {maxRetries}
+        </div>
+      )}
+
+      {isOwner && totalPossible > 0 && (
+        <div style={{ marginBottom: 8, fontSize: "0.85rem", color: "#444" }}>
+          🧮 <strong>Total Score:</strong> {totalEarned} / {totalPossible}
+        </div>
+      )}
+
+      <p style={{ fontSize: "0.85rem", marginBottom: 12 }}>
+        📅 {Math.min(unlockedCount, prompts.length)} of {prompts.length} days unlocked
+      </p>
       <div
         style={{
           display: "grid",

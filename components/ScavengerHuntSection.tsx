@@ -61,8 +61,7 @@ const ScavengerHuntSection: React.FC<Props> = ({
             🔓 <strong>Unlock more perks!</strong> Premium members get:
           </p>
           <ul style={{ fontSize: 14, paddingLeft: 20, marginTop: 8 }}>
-            <li>🔥 Streak busts if you miss a day</li>
-            <li>🧩 Access to future special hunts</li>
+            <li>🧩 Access to past hunts</li>
             <li>🔁 Ability to retry submissions</li>
           </ul>
           <Link href="/settings" legacyBehavior>
