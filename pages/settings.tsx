@@ -179,7 +179,7 @@ const handlePayment = async () => {
 
           {!isPremium && (
             <div style={{ marginTop: 16 }}>
-              <p><strong>🚀 Upgrade to Premium</strong> and unlock full features!</p>
+              <p><strong>🚀 Upgrade to Premium – just $7/month</strong> to unlock full features!</p>
               <div ref={cardRef} style={{ marginBottom: 12 }}></div>
               <button onClick={handlePayment} style={{
                 padding: "10px 20px",
@@ -189,7 +189,7 @@ const handlePayment = async () => {
                 borderRadius: 6,
                 cursor: "pointer",
               }}>
-                Pay $7
+                Pay $7/month
               </button>
               <p style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>
                 {status.includes("http") ? (
