@@ -41,6 +41,7 @@ const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.a
 
 const PICTURE_THIS_STORAGE_FULL_PATH = "https://picture-this-storage.s3.amazonaws.com";
 const LIST_HUNTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/list_scavenger_hunts";
+const LOG_PROFILE_VIEW_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/track_usage";
 
 type UploadItem = {
   key: string;
@@ -372,6 +373,16 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           favoriteSubjects: Array.isArray(result?.favoriteSubjects)
             ? result.favoriteSubjects.join(", ")
             : result?.favoriteSubjects || ""
+        });
+
+        // 🔥 Log all profile views — including self
+        await invokeLambdaIam({
+          url: LOG_PROFILE_VIEW_URL,
+          method: "POST",
+          body: {
+            viewer: user.username,
+            target: username,
+          },
         });
       } catch (err) {
         console.warn("No profile found.");
