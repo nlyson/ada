@@ -3,8 +3,10 @@ import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import Link from "next/link";
+import { fetchAuthSession } from "aws-amplify/auth";
+import { uploadData } from "@aws-amplify/storage";
 
-const UPLOAD_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/upload_photo";
+
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
 const GET_FEEDBACK_USAGE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_feedback_usage";
@@ -60,7 +62,6 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     }
   }, [user.username]);
 
-
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       setImage(e.target.files[0]);
@@ -68,18 +69,6 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
       setImage(null);
     }
     setFeedback(null);
-  }
-
-  function toBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-    });
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -94,42 +83,44 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setFeedback(null);
 
     try {
-      const base64 = await toBase64(image);
+      const session = await fetchAuthSession();
+      const identityId = session.identityId;
 
-      const uploadResponse = await invokeLambdaIam({
-        url: UPLOAD_PHOTO_LAMBDA_URL,
-        method: "POST",
-        body: {
-          fileContent: base64,
-          fileType: image.type,
-          fileName: image.name,
-          username: user.username,
-        },
+      const path = `public/user-creations/${user.username}/${image.name}`;
+
+      const result1 = await uploadData({
+        path,            // ✅ custom S3 path
+        data: image,     // ✅ your File or Blob
+        options: {
+          contentType: image.type
+        }
       });
 
-      const { imageUrl, s3Key } = uploadResponse;
+      console.log("✅ Upload result:", result1);
 
-      const useRubric = accountTier == "premium";
+
+      const useRubric = accountTier === "premium";
 
       const result = await invokeLambdaIam({
         url: REVIEW_PHOTO_LAMBDA_URL,
         method: "POST",
         body: {
-          imageUrl,
-          s3Key,
-          rubric: useRubric,
+          s3Key: path,
+          imageUrl: `https://picture-this-storage.s3.amazonaws.com/${path}`,
           username: user.username,
+          rubric: useRubric,
           challengeId: "manual-feedback",
-          accountTier, // 🆕 pass the user tier
+          accountTier,
         },
       });
 
-    const feedbackResult: FeedbackResult = {
-      feedback: result?.feedback || result?.result || "No feedback.",
-      score: result?.score,
-      rubric: result?.rubric,
-      tips: result?.tips,
-    };
+      const feedbackResult: FeedbackResult = {
+        feedback: result?.feedback || result?.result || "No feedback.",
+        score: result?.score,
+        rubric: result?.rubric,
+        tips: result?.tips,
+      };
+
       setFeedback(feedbackResult);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
@@ -147,11 +138,11 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
 
         <h2 style={{ fontSize: "1.8rem", margin: "1.5rem 0 1rem" }}>Photo Feedback</h2>
 
-          {usage && (
-            <div style={{ fontSize: 14, marginBottom: 8, color: "#4b5563" }}>
-              📸 Feedbacks used this week: <strong>{usage.used}</strong> of {usage.limit}
-            </div>
-          )}
+        {usage && (
+          <div style={{ fontSize: 14, marginBottom: 8, color: "#4b5563" }}>
+            📸 Feedbacks used this week: <strong>{usage.used}</strong> of {usage.limit}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
           <label htmlFor="fileInput" style={{ display: "inline-block", padding: "0.75rem 1.5rem", backgroundColor: "#e5e7eb", borderRadius: "9999px", fontWeight: 500, cursor: "pointer" }}>
@@ -168,11 +159,13 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
           <div style={{ backgroundColor: "#fffbe6", border: "1px solid #facc15", borderRadius: 12, padding: 16, marginTop: 32, textAlign: "left" }}>
             <p style={{ margin: 0, fontSize: 14 }}>🌟 <strong>Want the full critique?</strong> Premium users unlock:</p>
             <ul style={{ fontSize: 14, paddingLeft: 20, marginTop: 8 }}>
-              <li>✅ 50 photo reviews per week </li>
+              <li>✅ 50 photo reviews per week</li>
               <li>🧠 Direct input from <strong>Jama Pantel</strong> — founder & expert photographer</li>
             </ul>
             <Link href="/settings" legacyBehavior>
-              <a style={{ display: "inline-block", marginTop: 10, padding: "8px 16px", backgroundColor: "#16a34a", color: "white", borderRadius: 8, textDecoration: "none", fontWeight: 600, fontSize: 14 }}>🚀 Upgrade to Premium</a>
+              <a style={{ display: "inline-block", marginTop: 10, padding: "8px 16px", backgroundColor: "#16a34a", color: "white", borderRadius: 8, textDecoration: "none", fontWeight: 600, fontSize: 14 }}>
+                🚀 Upgrade to Premium
+              </a>
             </Link>
           </div>
         )}
@@ -198,19 +191,21 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
               </>
             )}
 
-          <div style={{ marginTop: 12 }}>
-            <strong>Feedback:</strong>
-            <div style={{ marginTop: 8 }}>
-          <ReactMarkdown
-            components={{
-              strong: ({ children }) => <strong style={{ color: "#b76e79" }}>{children}</strong>,
-              p: ({ children }) => <p style={{ marginBottom: 12 }}>{children}</p>,
-              ul: ({ children }) => <ul style={{ paddingLeft: 20, marginTop: 8 }}>{children}</ul>,
-            }}
-          >
-            {feedback.feedback}
-          </ReactMarkdown>  </div>
-          </div>
+            <div style={{ marginTop: 12 }}>
+              <strong>Feedback:</strong>
+              <div style={{ marginTop: 8 }}>
+                <ReactMarkdown
+                  components={{
+                    strong: ({ children }) => <strong style={{ color: "#b76e79" }}>{children}</strong>,
+                    p: ({ children }) => <p style={{ marginBottom: 12 }}>{children}</p>,
+                    ul: ({ children }) => <ul style={{ paddingLeft: 20, marginTop: 8 }}>{children}</ul>,
+                  }}
+                >
+                  {feedback.feedback}
+                </ReactMarkdown>
+              </div>
+            </div>
+
             {feedback.tips && feedback.tips.length > 0 && (
               <div style={{ marginTop: 16 }}>
                 <h4>🔁 Retry Tips</h4>
