@@ -1,6 +1,8 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import Link from "next/link";
+import { fetchAuthSession } from "aws-amplify/auth";
+import { uploadData } from "@aws-amplify/storage";
 
 const SUBMIT_CHALLENGE_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit_challenge";
 const FETCH_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/challenge_results";
@@ -89,14 +91,6 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
     }
   }
 
-  const toBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve((reader.result as string).split(",")[1]);
-      reader.onerror = reject;
-    });
-
   const maxRetries = accountTier === "premium" ? 10 : 1;
 
 
@@ -113,7 +107,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
 
 
     if (submissionCount >= maxRetries) {
-      alert(`You’ve reached the maximum number of submissions for this challenge.`);
+      alert(`You have reached the maximum number of submissions for this challenge.`);
       return;
     }
 
@@ -121,19 +115,31 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
     setStatus("");
 
     try {
-      const base64 = await toBase64(image);
+      const session = await fetchAuthSession();
+      const s3Key = `public/challenge-submissions/${user.username}/${image.name}`;
+      const imageUrl = `https://picture-this-storage.s3.amazonaws.com/${s3Key}`;
 
+      const uploadResult = await uploadData({
+        path: s3Key,
+        data: image,
+        options: {
+          contentType: image.type,
+        },
+      });
+      console.log("✅ Upload result:", uploadResult);
+      const encodedUrl = encodeURI(`https://picture-this-storage.s3.amazonaws.com/${s3Key}`);
+
+      // invoke challenge review
       const result = await invokeLambdaIam({
-        url: SUBMIT_CHALLENGE_LAMBDA_URL,
+        url: REVIEW_PHOTO_LAMBDA_URL,
         method: "POST",
         body: {
-          action: "submit",
+          imageUrl: encodedUrl,
+          s3Key: s3Key,
+          rubric: true,
           username: user.username,
           challengeId: currentChallenge.challengeId,
-          fileName: image.name,
-          fileContent: base64,
-          fileType: image.type,
-          caption,
+          accountTier,
         },
       });
 
@@ -203,7 +209,6 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
           challengeId: currentChallenge.challengeId, // ✅ required for filtering
         },
       });
-      console.log('results', res)
       setResults(Array.isArray(res) ? res : []);
       setStatus("Results loaded.");
     } catch (err) {
