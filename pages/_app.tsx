@@ -102,15 +102,18 @@ function AuthenticatedApp({
       <Layout user={user} signOut={safeSignOut} userRole={userRole}>
         {showWelcome && (
           <div style={{
-            backgroundColor: "#fff3cd",
-            color: "#856404",
+            backgroundColor: "#e0f7fa",
+            color: "#006064",
             padding: "1rem",
             borderRadius: "0.5rem",
             margin: "1rem 0",
-            border: "1px solid #ffeeba",
+            border: "1px solid #4dd0e1",
             textAlign: "center"
           }}>
-👋 Thanks for joining early access! Some features are still being refined, and you may encounter occasional bugs or missing polish. If you run into any issues or have ideas, please report them — we&apos;re building this for the community, and your feedback really matters. ❤️ Payments are now live, and your support helps us cover maintenance costs and continue building great features!          </div>
+            🎉 Thanks for being an early beta tester! As a token of our appreciation, you have been upgraded to a <strong>free premium membership</strong> for helping us shape Photo Mentor during its early days.
+            <br /><br />
+            Your feedback and support mean the world to us. ❤️ Enjoy unlimited challenges, detailed critiques, and all the tools we are building just for you.
+          </div>
         )}
         <Component signOut={safeSignOut} user={user} />
       </Layout>
