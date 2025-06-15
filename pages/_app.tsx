@@ -6,7 +6,6 @@ import '@/lib/configureAmplify'; // This runs the Amplify.configure() automatica
 console.log('🔥 AFTER CONFIG 2:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
 
 Amplify.configure({
-  ...amplifyConfig,
   Auth: {
     Cognito: {
       userPoolId: 'us-east-1_vin6qLM49',      // Your existing pool ID
