@@ -41,26 +41,48 @@ function AuthenticatedApp({
   const showWelcome = true;
 
   useEffect(() => {
+    // Safety timeout - don't let the app hang forever
+    const timeout = setTimeout(() => {
+      console.log('⏰ Timeout reached, forcing app to load');
+      if (loading) {
+        setUserRole("user");
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
+  useEffect(() => {
     const ensureProfileExists = async () => {
+      console.log('🚀 Starting ensureProfileExists for user:', user?.username);
+      
       try {
-        let profile;
-        try {
-          profile = await invokeLambdaIam({
-            url: GET_PROFILE_URL,
-            method: "POST",
-            body: { username: user?.username },
-          });
+        // Set a reasonable timeout for the whole operation
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile check timeout')), 15000)
+        );
 
-          if (profile?.username) {
-            setUserRole(profile.role);
-            return;
+        const profileCheckPromise = (async () => {
+          let profile;
+          try {
+            console.log('📡 Attempting to get profile...');
+            profile = await invokeLambdaIam({
+              url: GET_PROFILE_URL,
+              method: "POST",
+              body: { username: user?.username },
+            });
+            
+            if (profile?.username) {
+              console.log('✅ Profile exists, setting role:', profile.role);
+              setUserRole(profile.role);
+              return;
+            }
+          } catch (err) {
+            console.warn("⚠️ Profile fetch failed, creating new profile:", err);
           }
-        } catch (err) {
-          console.warn("No profile found, creating one.");
-        }
 
-        // Profile missing — create default one
-        try {
+          // Create profile
           await invokeLambdaIam({
             url: CREATE_USER_URL,
             method: "POST",
@@ -72,12 +94,16 @@ function AuthenticatedApp({
             },
           });
           setUserRole("user");
-        } catch (creationErr) {
-          console.error("❌ Failed to create new user profile:", creationErr);
-        }
+        })();
+
+        await Promise.race([profileCheckPromise, timeoutPromise]);
+        
       } catch (err) {
-        console.error("Failed to create or check user profile:", err);
+        console.error("❌ Profile operations failed, using fallback:", err);
+        // FALLBACK: Just set default role and continue
+        setUserRole("user");
       } finally {
+        console.log('🏁 Setting loading to false');
         setLoading(false);
       }
     };
