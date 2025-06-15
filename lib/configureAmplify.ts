@@ -1,15 +1,20 @@
-import outputs from '@/amplify_outputs.json';
+// lib/configureAmplify.ts
 import { Amplify } from 'aws-amplify';
+import amplifyConfig from '@/amplify_outputs.json';
+import outputs from '@/amplify_outputs.json';
 
-// Configure with full outputs FIRST
-Amplify.configure(outputs);
-
-// THEN override just the storage bucket
-Amplify.configure({
+// Merge everything into one config object
+const finalConfig = {
+  ...amplifyConfig,
+  ...outputs,
   Storage: {
     S3: {
       bucket: "picture-this-storage",
-      region: "us-east-1",
+      region: "us-east-1"
     }
   }
-}, { ssr: true });
+};
+
+// Configure once with the merged config
+Amplify.configure(finalConfig);
+
