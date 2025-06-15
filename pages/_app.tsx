@@ -11,6 +11,9 @@ import "@aws-amplify/ui-react/styles.css";
 import { motion } from "framer-motion";
 import Image from "next/image";
 
+import { Amplify } from 'aws-amplify';
+
+
 const CREATE_USER_URL =
   "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/create_user_with_email";
 const GET_PROFILE_URL =
@@ -29,6 +32,9 @@ function AuthenticatedApp({
   const [userRole, setUserRole] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const showWelcome = true;
+
+
+    console.log('🔧 Amplify Configuration:', Amplify.getConfig());
 
   useEffect(() => {
     const ensureProfileExists = async () => {
