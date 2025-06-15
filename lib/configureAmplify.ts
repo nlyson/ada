@@ -2,6 +2,8 @@
 import { Amplify } from 'aws-amplify';
 import amplifyConfig from '@/amplify_outputs.json';
 
+console.log('🔥 BEFORE in function:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
+
 Amplify.configure({
   ...amplifyConfig,
   Auth: {
@@ -17,3 +19,5 @@ Amplify.configure({
     }
   }
 });
+
+console.log('🔥 AFTER in function:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');

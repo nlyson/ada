@@ -1,7 +1,10 @@
 import { Amplify } from 'aws-amplify';
 import amplifyConfig from '@/amplify_outputs.json';
+console.log('🔥 BEFORE CONFIG:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
 
 import '@/lib/configureAmplify'; // This runs the Amplify.configure() automatically
+console.log('🔥 AFTER CONFIG 2:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
+
 Amplify.configure({
   ...amplifyConfig,
   Auth: {
@@ -17,6 +20,9 @@ Amplify.configure({
     }
   }
 });
+
+console.log('🔥 AFTER CONFIG 3:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
+
 import "@/styles/app.css";
 import type { AppProps } from "next/app";
 import { Authenticator } from "@aws-amplify/ui-react";
