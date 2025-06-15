@@ -1,14 +1,4 @@
-import { Amplify } from "aws-amplify";
-import amplifyConfig from "@/amplify_outputs.json";
-Amplify.configure({
-  ...amplifyConfig,
-  Storage: {
-    S3: {
-      bucket: "picture-this-storage",
-      region: "us-east-1",
-    }
-  }
-});
+import '@/lib/configureAmplify'; // This runs the Amplify.configure() automatically
 import "@/styles/app.css";
 import type { AppProps } from "next/app";
 import { Authenticator } from "@aws-amplify/ui-react";
