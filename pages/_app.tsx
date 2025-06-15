@@ -37,6 +37,8 @@ function AuthenticatedApp({
     console.log('🔧 Amplify Configuration:', Amplify.getConfig());
 
   useEffect(() => {
+    console.log('🔧 DEPLOYED in _app Amplify Config:', Amplify.getConfig());
+    console.log('🔧 DEPLOYED in _app Auth Config:', Amplify.getConfig().Auth);
     const ensureProfileExists = async () => {
       try {
         let profile;

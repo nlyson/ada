@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import UserSearch from "@/components/UserSearch";
 import { useUnread } from "@/context/UnreadContext";
+import { Amplify } from 'aws-amplify';
 
 // Comment to force build
 
@@ -20,6 +21,8 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
 
   useEffect(() => {
     console.log("👀 Layout loaded. user:", user?.username, "role:", userRole);
+        console.log('🔧 DEPLOYED Amplify Config:', Amplify.getConfig());
+    console.log('🔧 DEPLOYED Auth Config:', Amplify.getConfig().Auth);
   }, [userRole]);
 
   return (
