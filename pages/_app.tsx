@@ -41,26 +41,48 @@ function AuthenticatedApp({
   const showWelcome = true;
 
   useEffect(() => {
+    // Safety timeout - don't let the app hang forever
+    const timeout = setTimeout(() => {
+      //console.log('⏰ Timeout reached, forcing app to load');
+      if (loading) {
+        setUserRole("user");
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
+  useEffect(() => {
     const ensureProfileExists = async () => {
+      //console.log('🚀 Starting ensureProfileExists for user:', user?.username);
+      
       try {
-        let profile;
-        try {
-          profile = await invokeLambdaIam({
-            url: GET_PROFILE_URL,
-            method: "POST",
-            body: { username: user?.username },
-          });
+        // Set a reasonable timeout for the whole operation
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile check timeout')), 15000)
+        );
 
-          if (profile?.username) {
-            setUserRole(profile.role);
-            return;
+        const profileCheckPromise = (async () => {
+          let profile;
+          try {
+            //console.log('📡 Attempting to get profile...');
+            profile = await invokeLambdaIam({
+              url: GET_PROFILE_URL,
+              method: "POST",
+              body: { username: user?.username },
+            });
+            
+            if (profile?.username) {
+              //console.log('✅ Profile exists, setting role:', profile.role);
+              setUserRole(profile.role);
+              return;
+            }
+          } catch (err) {
+            //console.warn("⚠️ Profile fetch failed, creating new profile:", err);
           }
-        } catch (err) {
-          console.warn("No profile found, creating one.");
-        }
 
-        // Profile missing — create default one
-        try {
+          // Create profile
           await invokeLambdaIam({
             url: CREATE_USER_URL,
             method: "POST",
@@ -72,12 +94,16 @@ function AuthenticatedApp({
             },
           });
           setUserRole("user");
-        } catch (creationErr) {
-          console.error("❌ Failed to create new user profile:", creationErr);
-        }
+        })();
+
+        await Promise.race([profileCheckPromise, timeoutPromise]);
+        
       } catch (err) {
-        console.error("Failed to create or check user profile:", err);
+        console.error("❌ Profile operations failed, using fallback:", err);
+        // FALLBACK: Just set default role and continue
+        setUserRole("user");
       } finally {
+        //console.log('🏁 Setting loading to false');
         setLoading(false);
       }
     };
@@ -126,26 +152,30 @@ export default function App({ Component, pageProps, router }: AppProps) {
     <Authenticator
       components={{
         Header: () => (
-          <div style={{ textAlign: "center", padding: "2rem 1rem 1rem" }}>
+          <div style={{ 
+            textAlign: "center", 
+            padding: "1rem 1rem 0.5rem", // Reduced padding
+            marginBottom: "1rem" 
+          }}>
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1 }}
               style={{
-                maxWidth: 300,
+                maxWidth: 200, // Reduced from 300px
                 margin: "0 auto",
               }}
             >
               <Image
                 src="/photo_mentor_home.png"
                 alt="Photo Mentor Logo"
-                width={300}
-                height={300}
+                width={200} // Reduced from 300
+                height={200} // Reduced from 300
                 style={{
                   width: "100%",
                   height: "auto",
-                  borderRadius: "1.5rem",
-                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
+                  borderRadius: "1rem", // Slightly smaller radius
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)", // Reduced shadow
                 }}
               />
             </motion.div>
@@ -155,8 +185,8 @@ export default function App({ Component, pageProps, router }: AppProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               style={{
-                marginTop: "1.5rem",
-                fontSize: "1.5rem",
+                marginTop: "1rem", // Reduced from 1.5rem
+                fontSize: "1.3rem", // Slightly smaller
                 color: "#b76e79",
                 fontWeight: "bold",
               }}
@@ -169,12 +199,13 @@ export default function App({ Component, pageProps, router }: AppProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
               style={{
-                fontSize: "1rem",
+                fontSize: "0.9rem", // Slightly smaller
                 color: "#555",
-                marginTop: "0.75rem",
-                maxWidth: 380,
+                marginTop: "0.5rem", // Reduced from 0.75rem
+                maxWidth: 320, // Reduced from 380
                 marginLeft: "auto",
                 marginRight: "auto",
+                marginBottom: "0.5rem" // Add bottom margin
               }}
             >
               Sign up or sign in to join challenges, get feedback, and grow your photography skills.

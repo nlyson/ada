@@ -17,7 +17,7 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
   const handleMenuClick = () => setMenuOpen(false);
 
   useEffect(() => {
-    console.log("👀 Layout loaded. user:", user?.username, "role:", userRole);
+    //console.log("👀 Layout loaded. user:", user?.username, "role:", userRole);
   }, [userRole]);
 
   return (
