@@ -20,12 +20,12 @@ export async function invokeLambdaIam({
   retries = 2,
   delayMs = 750,
 }: InvokeLambdaOptions) {
-  console.log('🔐 Starting invokeLambdaIam for URL:', url);
+  //console.log('🔐 Starting invokeLambdaIam for URL:', url);
   
   try {
-    console.log('🎫 Fetching auth session...');
+    //console.log('🎫 Fetching auth session...');
     const { credentials } = await fetchAuthSession();
-    console.log('✅ Auth session fetched, credentials available:', !!credentials);
+    //console.log('✅ Auth session fetched, credentials available:', !!credentials);
 
     if (!credentials) {
       console.error('❌ No IAM credentials available');
@@ -33,7 +33,7 @@ export async function invokeLambdaIam({
     }
 
     const parsedUrl = new URL(url);
-    console.log('🌐 Parsed URL:', parsedUrl.hostname);
+    //console.log('🌐 Parsed URL:', parsedUrl.hostname);
 
     const signer = new SignatureV4({
       service: 'execute-api',
@@ -60,19 +60,19 @@ export async function invokeLambdaIam({
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        console.log(`🔄 Attempt ${attempt + 1}/${retries + 1} for ${url}`);
+        //console.log(`🔄 Attempt ${attempt + 1}/${retries + 1} for ${url}`);
         
         const signedRequest = await signer.sign(request);
-        console.log('✅ Request signed successfully');
+        //console.log('✅ Request signed successfully');
 
-        console.log('📡 Making fetch request...');
+        //console.log('📡 Making fetch request...');
         const response = await fetch(url, {
           method,
           headers: signedRequest.headers as Record<string, string>,
           body: request.body,
         });
 
-        console.log('📨 Response received, status:', response.status);
+        //console.log('📨 Response received, status:', response.status);
 
         if (!response.ok) {
           console.error(`❌ Response not OK: ${response.status}`);
@@ -84,9 +84,9 @@ export async function invokeLambdaIam({
           throw new Error(`Lambda request failed: ${response.status}`);
         }
 
-        console.log('✅ Request successful, parsing response...');
+        //console.log('✅ Request successful, parsing response...');
         const result = responseType === 'text' ? await response.text() : await response.json();
-        console.log('✅ Response parsed successfully');
+        //console.log('✅ Response parsed successfully');
         return result;
       } catch (err: any) {
         console.error(`❌ Attempt ${attempt + 1} failed:`, err.message);

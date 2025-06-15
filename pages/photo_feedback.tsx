@@ -3,7 +3,6 @@ import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import Link from "next/link";
-import { fetchAuthSession } from "aws-amplify/auth";
 import { uploadData } from "@aws-amplify/storage";
 
 
@@ -83,9 +82,6 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setFeedback(null);
 
     try {
-      const session = await fetchAuthSession();
-      const identityId = session.identityId;
-
       const path = `public/user-creations/${user.username}/${image.name}`;
 
       const result1 = await uploadData({

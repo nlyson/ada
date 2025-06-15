@@ -11,6 +11,7 @@ import ProfileDetails from "@/components/ProfileDetails";
 import { UserStatsCard } from "@/components/UserStatsCard";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { fetchAuthSession } from "aws-amplify/auth";
+import { uploadData } from 'aws-amplify/storage';
 
 
 type UserProfile = {
@@ -162,15 +163,29 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
 
     try {
-      // Step 1: Upload to S3
+      // Step 1: Upload to S3 using Amplify's uploadData
       const s3Key = `public/scavenger-hunts/${selectedHuntId}/${user.username}/${promptId}.jpg`;
 
-      await uploadToCustomBucket(file, s3Key);
+      console.log("🚀 Starting Amplify hunt upload to path:", s3Key);
+      
+      // Wait for the upload to complete AND get the result
+      const uploadResult = await uploadData({
+        path: s3Key,
+        data: file,
+        options: {
+          contentType: file.type
+        }
+      }).result; // Important: add .result to wait for completion
 
+      console.log("✅ Amplify hunt upload completed:", uploadResult);
+
+      // Add a small delay to ensure S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${s3Key}`;
 
-      // Step 2: Call Lambda with just the s3Key
+      // Step 2: Call Lambda with the s3Key
+      console.log("🔄 Registering hunt submission with Lambda...");
       await invokeLambdaIam({
         url: SUBMIT_HUNT_PHOTO_URL,
         method: "POST",
@@ -178,9 +193,11 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           huntId: selectedHuntId,
           username: user.username,
           promptId,
-          s3Key,
+          s3Key: s3Key, // Now using 'path' instead of 's3Key'
         },
       });
+
+      console.log("✅ Hunt submission completed");
 
       // Step 3: Review / score the photo
       await invokeLambdaIam({
@@ -434,17 +451,30 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     setUploading(true);
 
     try {
-      const s3Key = `user-creations/${user.username}/${Date.now()}-${file.name}`;
-
+      const path = `public/user-creations/${user.username}/${Date.now()}-${file.name}`;
 
       if (!caption || caption.trim().length === 0) {
         caption = "(Untitled)";
       }
 
-      // Upload to S3 using helper
-      await uploadToCustomBucket(file, s3Key);
+      console.log("🚀 Starting Amplify upload to path:", path);
+      
+      // Wait for the upload to complete AND get the result
+      const uploadResult = await uploadData({
+        path,
+        data: file,
+        options: {
+          contentType: file.type
+        }
+      }).result; // Important: add .result to wait for completion
 
-      // Trigger backend to update DB entries
+      console.log("✅ Amplify upload completed:", uploadResult);
+
+      // Add a small delay to ensure S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Now register with Lambda
+      console.log("🔄 Registering with Lambda...");
       await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
@@ -452,10 +482,12 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           action: "register",
           username: user.username,
           fileName: file.name,
-          s3Key,
+          s3Key: path,
           caption
         },
       });
+
+      console.log("✅ Lambda registration completed");
 
       // Re-fetch updated creations list
       const res = await invokeLambdaIam({
