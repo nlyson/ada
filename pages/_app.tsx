@@ -1,17 +1,7 @@
-import { Amplify } from 'aws-amplify';
-import amplifyConfig from '@/amplify_outputs.json';
-console.log('🔥 BEFORE CONFIG:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
-
 import '@/lib/configureAmplify'; // This runs the Amplify.configure() automatically
-console.log('🔥 AFTER CONFIG 2:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
+import { Amplify } from 'aws-amplify';
 
 Amplify.configure({
-  Auth: {
-    Cognito: {
-      userPoolId: 'us-east-1_vin6qLM49',      // Your existing pool ID
-      userPoolClientId: 'bhkb9c7knji0t123viqjompep',          // Your existing client ID
-    }
-  },
   Storage: {
     S3: {
       bucket: "picture-this-storage",
@@ -20,7 +10,7 @@ Amplify.configure({
   }
 });
 
-console.log('🔥 AFTER CONFIG 3:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
+console.log('🔥 AFTER CONFIG:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
 
 import "@/styles/app.css";
 import type { AppProps } from "next/app";
