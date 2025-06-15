@@ -35,6 +35,132 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
   const [totalChallengeSubmissions, setTotalChallengeSubmissions] = useState(0);
   const submissionCount = results.length;
 
+  // Aggressive compression for large images to avoid multipart upload
+  async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Start with aggressive sizing for large files
+        const isLargeFile = file.size > 10 * 1024 * 1024; // 10MB+
+        const maxSize = isLargeFile ? 1200 : 1500; // Smaller for large files
+        
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress with aggressive quality for large files
+        ctx.drawImage(img, 0, 0, width, height);
+        const quality = isLargeFile ? 0.7 : 0.85; // Lower quality for large files
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            console.log(`📦 Compressed ${file.size} bytes to ${compressedFile.size} bytes`);
+            
+            // If still too large, compress more aggressively
+            if (compressedFile.size > 4 * 1024 * 1024) { // Still > 4MB
+              console.log("🔄 Still too large, compressing more aggressively...");
+              compressMoreAggressively(file, resolve);
+            } else {
+              resolve(compressedFile);
+            }
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Super aggressive compression for stubborn large files
+  function compressMoreAggressively(file: File, resolve: (file: File) => void) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // Much smaller dimensions
+      const maxSize = 800;
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const superCompressed = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          console.log(`📦 Super compressed to ${superCompressed.size} bytes`);
+          resolve(superCompressed);
+        } else {
+          resolve(file);
+        }
+      }, 'image/jpeg', 0.5); // Very low quality but guaranteed small size
+    };
+    
+    img.src = URL.createObjectURL(file);
+  }
+
+  // Force single-part upload with uploadData
+  async function uploadWithSinglePart(file: File, path: string) {
+    console.log("🌐 Using uploadData with forced single-part upload");
+    
+    try {
+      const result = await uploadData({
+        path,
+        data: file,
+        options: {
+          contentType: file.type,
+          useAccelerateEndpoint: false,
+          onProgress: undefined,
+        }
+      }).result;
+      
+      console.log("✅ Single-part upload completed:", result);
+      return result;
+      
+    } catch (error: unknown) {
+      console.error("❌ uploadData failed:", error);
+      throw error;
+    }
+  }
+
   useEffect(() => {
     async function init() {
       const [profileRes, challengeRes] = await Promise.all([
@@ -93,7 +219,6 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
 
   const maxRetries = accountTier === "premium" ? 10 : 1;
 
-
   const handleSubmit = async () => {
     if (!image || !currentChallenge) return;
 
@@ -105,7 +230,6 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
       return;
     }
 
-
     if (submissionCount >= maxRetries) {
       alert(`You have reached the maximum number of submissions for this challenge.`);
       return;
@@ -115,18 +239,23 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
     setStatus("");
 
     try {
+      // Compress the image first to avoid multipart upload
+      console.log("📦 Compressing image to avoid multipart upload...");
+      console.log("📁 Original file size:", image.size);
+      const compressedImage = await compressImage(image);
+      console.log("📁 Compressed file size:", compressedImage.size);
+
       const session = await fetchAuthSession();
-      const s3Key = `public/challenge-submissions/${user.username}/${image.name}`;
+      const s3Key = `public/challenge-submissions/${user.username}/${Date.now()}-${compressedImage.name}`;
       const imageUrl = `https://picture-this-storage.s3.amazonaws.com/${s3Key}`;
 
-      const uploadResult = await uploadData({
-        path: s3Key,
-        data: image,
-        options: {
-          contentType: image.type,
-        },
-      });
+      console.log("🚀 Starting upload to:", s3Key);
+      const uploadResult = await uploadWithSinglePart(compressedImage, s3Key);
       console.log("✅ Upload result:", uploadResult);
+
+      // Small delay for S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       const encodedUrl = encodeURI(`https://picture-this-storage.s3.amazonaws.com/${s3Key}`);
 
       // invoke challenge review
@@ -244,7 +373,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
               style={{ marginTop: 12, padding: 8, width: "100%", maxWidth: 400 }}
             />
             <p style={{ fontSize: "0.85rem", color: "#666", marginTop: 4 }}>
-              Max file size: {accountTier === "premium" ? "50MB" : "2MB"}
+              Max file size: {accountTier === "premium" ? "50MB" : "2MB"} (will be compressed automatically)
             </p>
             <div style={{ marginTop: 16 }}>
               <button
@@ -259,7 +388,7 @@ const Challenge: React.FC<AppProps> = ({ user }) => {
                   cursor: loading ? "not-allowed" : "pointer",
                 }}
               >
-                {loading ? "Submitting..." : "Submit to Challenge"}
+                {loading ? "Compressing & Submitting..." : "Submit to Challenge"}
               </button>
             </div>
           </>

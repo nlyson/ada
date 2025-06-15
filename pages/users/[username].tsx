@@ -12,6 +12,7 @@ import { UserStatsCard } from "@/components/UserStatsCard";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { fetchAuthSession } from "aws-amplify/auth";
 import { uploadData } from 'aws-amplify/storage';
+import { Capacitor } from '@capacitor/core';
 
 
 type UserProfile = {
@@ -163,28 +164,21 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
 
     try {
-      // Step 1: Upload to S3 using Amplify's uploadData
-      const s3Key = `public/scavenger-hunts/${selectedHuntId}/${user.username}/${promptId}.jpg`;
+      const path = `public/scavenger-hunts/${selectedHuntId}/${user.username}/${promptId}.jpg`;
 
-      console.log("🚀 Starting Amplify hunt upload to path:", s3Key);
+      console.log("🚀 Starting platform-specific upload to path:", path);
+      console.log("📱 Platform:", Capacitor.getPlatform());
       
-      // Wait for the upload to complete AND get the result
-      const uploadResult = await uploadData({
-        path: s3Key,
-        data: file,
-        options: {
-          contentType: file.type
-        }
-      }).result; // Important: add .result to wait for completion
-
-      console.log("✅ Amplify hunt upload completed:", uploadResult);
+      // Use platform-specific upload
+      const uploadResult = await uploadForPlatform(file, path);
+      console.log("✅ Upload completed:", uploadResult);
 
       // Add a small delay to ensure S3 consistency
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${s3Key}`;
+      const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${path}`;
 
-      // Step 2: Call Lambda with the s3Key
+      // Call Lambda to register submission
       console.log("🔄 Registering hunt submission with Lambda...");
       await invokeLambdaIam({
         url: SUBMIT_HUNT_PHOTO_URL,
@@ -193,27 +187,37 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           huntId: selectedHuntId,
           username: user.username,
           promptId,
-          s3Key: s3Key, // Now using 'path' instead of 's3Key'
+          s3Key: path,
         },
       });
-
       console.log("✅ Hunt submission completed");
 
+      // 🔄 REFRESH CREDENTIALS before scoring to prevent signature mismatch
+      console.log("🔄 Refreshing credentials before scoring...");
+      await fetchAuthSession({ forceRefresh: true });
+
       // Step 3: Review / score the photo
+      console.log("🎯 Starting photo scoring...");
       await invokeLambdaIam({
         url: REVIEW_PHOTO_LAMBDA_URL,
         method: "POST",
         body: {
           imageUrl,
-          s3Key,
+          path,
           rubric: true,
           username: user.username,
           huntId: selectedHuntId,
           scavengerPromptId: promptId,
         },
       });
+      console.log("✅ Photo scoring completed");
+
+      // 🔄 REFRESH CREDENTIALS again before stats updates
+      console.log("🔄 Refreshing credentials before stats updates...");
+      await fetchAuthSession({ forceRefresh: true });
 
       // Step 4: Update stats
+      console.log("📊 Updating user stats...");
       await invokeLambdaIam({
         url: UPDATE_USER_STATS_LAMBDA_URL,
         method: "POST",
@@ -235,12 +239,16 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           },
         },
       });
+      console.log("✅ Stats updates completed");
 
       setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
 
+      // Refresh results to get the new scores
       await fetchAllScavengerResults(selectedHuntId);
+
     } catch (err) {
-      console.error("Upload or scoring failed:", err);
+      console.error("❌ Upload or scoring failed:", err);
+      alert(`Upload or scoring failed: ${err}`);
     } finally {
       setHuntUploadLoading((prev) => ({ ...prev, [promptId]: false }));
     }
@@ -457,23 +465,21 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         caption = "(Untitled)";
       }
 
-      console.log("🚀 Starting Amplify upload to path:", path);
+      console.log("🚀 Starting platform-specific upload to path:", path);
+      console.log("📱 Platform:", Capacitor.getPlatform());
       
-      // Wait for the upload to complete AND get the result
-      const uploadResult = await uploadData({
-        path,
-        data: file,
-        options: {
-          contentType: file.type
-        }
-      }).result; // Important: add .result to wait for completion
-
-      console.log("✅ Amplify upload completed:", uploadResult);
+      // Use platform-specific upload
+      const uploadResult = await uploadForPlatform(file, path);
+      console.log("✅ Upload completed:", uploadResult);
 
       // Add a small delay to ensure S3 consistency
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Now register with Lambda
+      // 🔄 REFRESH CREDENTIALS before Lambda calls
+      console.log("🔄 Refreshing credentials before Lambda registration...");
+      await fetchAuthSession({ forceRefresh: true });
+
+      // Register with Lambda
       console.log("🔄 Registering with Lambda...");
       await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
@@ -486,14 +492,18 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           caption
         },
       });
-
       console.log("✅ Lambda registration completed");
 
+      // 🔄 REFRESH CREDENTIALS before fetching updated list
+      console.log("🔄 Refreshing credentials before fetching updated list...");
+      await fetchAuthSession({ forceRefresh: true });
+
       // Re-fetch updated creations list
+      console.log("📋 Fetching updated creations list...");
       const res = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
-        body: { action: "list", username },
+        body: { action: "list", username: user.username },
       });
 
       const mapped = res.items?.map((item: any) => ({
@@ -502,8 +512,14 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         caption: item.caption,
       })) || [];
       setUploadItems(mapped);
+      console.log("✅ Updated creations list fetched");
 
-      // Stats
+      // 🔄 REFRESH CREDENTIALS before stats updates
+      console.log("🔄 Refreshing credentials before stats updates...");
+      await fetchAuthSession({ forceRefresh: true });
+
+      // Update stats
+      console.log("📊 Updating user stats...");
       await invokeLambdaIam({
         url: UPDATE_USER_STATS_LAMBDA_URL,
         method: "POST",
@@ -525,10 +541,13 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           },
         },
       });
+      console.log("✅ Stats updates completed");
 
       setImage(null);
+
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("❌ Upload error:", err);
+      alert(`Upload failed: ${err}`);
     } finally {
       setUploading(false);
     }
@@ -537,7 +556,7 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   async function handleDelete(key: string) {
     if (!confirm("Delete this image?")) return;
     try {
-      await invokeLambdaIam({
+      const result = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
         body: {
@@ -546,11 +565,170 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           fileName: key.replace(`user-creations/${user.username}/`, ""),
         },
       });
+      console.log('------------Delete result', result)
       setUploadItems((prev) => prev.filter((item) => item.key !== key));
     } catch (err) {
       console.error("Delete error:", err);
     }
   }
+
+
+
+  // Replace the uploadForPlatform function and add compression functions
+
+  // Aggressive compression for large images to avoid multipart upload
+  async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Start with aggressive sizing for large files
+        const isLargeFile = file.size > 10 * 1024 * 1024; // 10MB+
+        const maxSize = isLargeFile ? 1200 : 1500; // Smaller for large files
+        
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress with aggressive quality for large files
+        ctx.drawImage(img, 0, 0, width, height);
+        const quality = isLargeFile ? 0.7 : 0.85; // Lower quality for large files
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            console.log(`📦 Compressed ${file.size} bytes to ${compressedFile.size} bytes`);
+            
+            // If still too large, compress more aggressively
+            if (compressedFile.size > 4 * 1024 * 1024) { // Still > 4MB
+              console.log("🔄 Still too large, compressing more aggressively...");
+              compressMoreAggressively(file, resolve);
+            } else {
+              resolve(compressedFile);
+            }
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Super aggressive compression for stubborn large files
+  function compressMoreAggressively(file: File, resolve: (file: File) => void) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // Much smaller dimensions
+      const maxSize = 800;
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const superCompressed = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          console.log(`📦 Super compressed to ${superCompressed.size} bytes`);
+          resolve(superCompressed);
+        } else {
+          resolve(file);
+        }
+      }, 'image/jpeg', 0.5); // Very low quality but guaranteed small size
+    };
+    
+    img.src = URL.createObjectURL(file);
+  }
+
+  // Force single-part upload with uploadData
+  async function uploadWithSinglePart(file: File, path: string) {
+    console.log("🌐 Using uploadData with forced single-part upload");
+    
+    try {
+      const result = await uploadData({
+        path,
+        data: file,
+        options: {
+          contentType: file.type,
+          useAccelerateEndpoint: false,
+          onProgress: undefined,
+        }
+      }).result;
+      
+      console.log("✅ Single-part upload completed:", result);
+      return result;
+      
+    } catch (error: unknown) {
+      console.error("❌ uploadData failed:", error);
+      throw error;
+    }
+  }
+
+  // Updated upload function that ensures public access with compression
+  async function uploadForPlatform(file: File, path: string) {
+    console.log("🚀 Starting upload with compression to path:", path);
+    console.log("📁 Original file size:", file.size);
+    
+    try {
+      // Compress the image first to avoid multipart upload
+      console.log("📦 Compressing image to avoid multipart upload...");
+      const compressedFile = await compressImage(file);
+      
+      console.log("✅ Compression completed");
+      console.log("📁 Compressed file size:", compressedFile.size);
+      
+      // Use uploadData with the compressed file
+      const result = await uploadWithSinglePart(compressedFile, path);
+      
+      // Small delay for S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return result;
+      
+    } catch (error) {
+      console.error("❌ Upload with compression failed:", error);
+      throw error;
+    }
+  }
+    
 
   const selectedHunt = availableHunts.find(h => h.huntId === selectedHuntId);
 

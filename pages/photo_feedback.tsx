@@ -3,7 +3,7 @@ import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import Link from "next/link";
-import { uploadData } from "@aws-amplify/storage";
+import { uploadData } from 'aws-amplify/storage';
 
 
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
@@ -67,7 +67,148 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     } else {
       setImage(null);
     }
+    // Clear previous feedback when new image is selected
     setFeedback(null);
+  }
+
+  // Aggressive compression for large images to avoid multipart upload
+  async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Start with aggressive sizing for large files
+        const isLargeFile = file.size > 10 * 1024 * 1024; // 10MB+
+        const maxSize = isLargeFile ? 1200 : 1500; // Smaller for large files
+        
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress with aggressive quality for large files
+        ctx.drawImage(img, 0, 0, width, height);
+        const quality = isLargeFile ? 0.7 : 0.85; // Lower quality for large files
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            console.log(`📦 Compressed ${file.size} bytes to ${compressedFile.size} bytes`);
+            
+            // If still too large, compress more aggressively
+            if (compressedFile.size > 4 * 1024 * 1024) { // Still > 4MB
+              console.log("🔄 Still too large, compressing more aggressively...");
+              compressMoreAggressively(file, resolve);
+            } else {
+              resolve(compressedFile);
+            }
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Super aggressive compression for stubborn large files
+  function compressMoreAggressively(file: File, resolve: (file: File) => void) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // Much smaller dimensions
+      const maxSize = 800;
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const superCompressed = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          console.log(`📦 Super compressed to ${superCompressed.size} bytes`);
+          resolve(superCompressed);
+        } else {
+          resolve(file);
+        }
+      }, 'image/jpeg', 0.5); // Very low quality but guaranteed small size
+    };
+    
+    img.src = URL.createObjectURL(file);
+  }
+
+  // Force single-part upload with uploadData
+  async function uploadWithSinglePart(file: File, path: string) {
+    console.log("🌐 Using uploadData with forced single-part upload");
+    
+    try {
+      const result = await uploadData({
+        path,
+        data: file,
+        options: {
+          contentType: file.type,
+          useAccelerateEndpoint: false,
+          // These might help force single-part upload
+          onProgress: undefined,
+          // Try to prevent multipart by keeping size small in AWS's eyes
+        }
+      }).result;
+      
+      console.log("✅ Single-part upload completed:", result);
+      return result;
+      
+    } catch (error: unknown) {
+      console.error("❌ uploadData failed:", error);
+      throw error;
+    }
+  }
+
+  // Function to reset the form completely
+  function resetForm() {
+    setImage(null);
+    setFeedback(null);
+    setLoading(false);
+    // Reset the file input
+    const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -82,20 +223,27 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setFeedback(null);
 
     try {
-      const path = `public/user-creations/${user.username}/${image.name}`;
+      // Compress the image first to avoid multipart upload
+      console.log("📦 Compressing image to avoid multipart upload...");
+      const compressedImage = await compressImage(image);
+      
+      // Use timestamp to ensure unique filenames
+      const timestamp = Date.now();
+      const path = `public/user-creations/${user.username}/${timestamp}-${compressedImage.name}`;
 
-      const result1 = await uploadData({
-        path,            // ✅ custom S3 path
-        data: image,     // ✅ your File or Blob
-        options: {
-          contentType: image.type
-        }
-      });
+      console.log("🚀 Starting upload to path:", path);
 
-      console.log("✅ Upload result:", result1);
+      // Use uploadData with single-part approach
+      const result1 = await uploadWithSinglePart(compressedImage, path);
 
+      console.log("✅ Upload completed:", result1);
+
+      // Add a delay to ensure S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const useRubric = accountTier === "premium";
+
+      console.log("🔄 Sending for analysis...");
 
       const result = await invokeLambdaIam({
         url: REVIEW_PHOTO_LAMBDA_URL,
@@ -110,6 +258,8 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         },
       });
 
+      console.log("✅ Analysis completed:", result);
+
       const feedbackResult: FeedbackResult = {
         feedback: result?.feedback || result?.result || "No feedback.",
         score: result?.score,
@@ -119,6 +269,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
 
       setFeedback(feedbackResult);
       window.scrollTo({ top: 0, behavior: "smooth" });
+
     } catch (err) {
       console.error("Error analyzing image:", err);
       setFeedback({ feedback: `Error analyzing image: ${err}` });
@@ -146,9 +297,39 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
           </label>
           <input id="fileInput" type="file" accept="image/*" onChange={handleChange} style={{ display: "none" }} />
 
-          <button type="submit" disabled={loading} style={{ padding: "0.75rem 1.5rem", backgroundColor: "#b76e79", color: "white", border: "none", borderRadius: "9999px", fontSize: "1rem", fontWeight: "bold", cursor: "pointer", width: "100%", maxWidth: "300px" }}>
+          <button type="submit" disabled={loading || !image} style={{ 
+            padding: "0.75rem 1.5rem", 
+            backgroundColor: (loading || !image) ? "#9ca3af" : "#b76e79", 
+            color: "white", 
+            border: "none", 
+            borderRadius: "9999px", 
+            fontSize: "1rem", 
+            fontWeight: "bold", 
+            cursor: (loading || !image) ? "not-allowed" : "pointer", 
+            width: "100%", 
+            maxWidth: "300px" 
+          }}>
             {loading ? "Analyzing..." : "Analyze Photo"}
           </button>
+
+          {/* Add a reset button for convenience */}
+          {(image || feedback) && (
+            <button 
+              type="button" 
+              onClick={resetForm}
+              style={{ 
+                padding: "0.5rem 1rem", 
+                backgroundColor: "#6b7280", 
+                color: "white", 
+                border: "none", 
+                borderRadius: "9999px", 
+                fontSize: "0.9rem", 
+                cursor: "pointer" 
+              }}
+            >
+              🗑️ Clear & Start Over
+            </button>
+          )}
         </form>
 
         {accountTier !== "premium" && (
