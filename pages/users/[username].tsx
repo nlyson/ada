@@ -11,7 +11,7 @@ import ProfileDetails from "@/components/ProfileDetails";
 import { UserStatsCard } from "@/components/UserStatsCard";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { fetchAuthSession } from "aws-amplify/auth";
-
+import { Amplify } from 'aws-amplify';
 
 type UserProfile = {
   username: string;
@@ -98,6 +98,8 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
 
 
   const isOwner = user?.username === username;
+
+  console.log('🔥 IN username:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
 
 
   async function uploadToCustomBucket(file: File, s3Key: string) {

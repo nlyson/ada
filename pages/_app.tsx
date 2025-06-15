@@ -1,5 +1,16 @@
 import '@/lib/configureAmplify'; // This runs the Amplify.configure() automatically
 import { Amplify } from 'aws-amplify';
+import amplifyConfig from '@/amplify_outputs.json';
+
+Amplify.configure({
+  ...amplifyConfig,
+  Storage: {
+    S3: {
+      bucket: "picture-this-storage",
+      region: "us-east-1",
+    }
+  }
+});
 
 Amplify.configure({
   Storage: {
@@ -125,6 +136,22 @@ function AuthenticatedApp({
             Your feedback and support mean the world to us. ❤️ Enjoy unlimited challenges, detailed critiques, and all the tools we are building just for you.
           </div>
         )}
+        {/* Account Migration Warning - Add this right after the showWelcome div */}
+        <div style={{
+          backgroundColor: "#fff3cd",
+          color: "#856404",
+          padding: "1rem",
+          borderRadius: "0.5rem",
+          margin: "1rem 0",
+          border: "1px solid #ffeaa7",
+          textAlign: "center"
+        }}>
+          ⚠️ <strong>Important Notice:</strong> Due to recent system updates, you may need to <strong>create a new account</strong> if you arere having trouble signing in.
+          <br /><br />
+          We apologize for any inconvenience! Your previous account data was not lost, but you will need to sign up again to continue using Photo Mentor.
+          <br /><br />
+          Thank you for your patience as we improve the platform! 🙏
+        </div>
         <Component signOut={safeSignOut} user={user} />
       </Layout>
     </UnreadProvider>
