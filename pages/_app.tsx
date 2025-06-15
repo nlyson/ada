@@ -1,6 +1,15 @@
 import '@/lib/configureAmplify'; // This runs the Amplify.configure() automatically
 import { Amplify } from 'aws-amplify';
 
+Amplify.configure({
+  Storage: {
+    S3: {
+      bucket: "picture-this-storage",  // ← Your correct bucket
+      region: "us-east-1",
+    }
+  }
+});
+
 console.log('🔥 AFTER CONFIG:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
 
 import "@/styles/app.css";

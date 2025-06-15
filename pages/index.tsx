@@ -1,5 +1,16 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { Amplify } from 'aws-amplify';
+
+Amplify.configure({
+  Storage: {
+    S3: {
+      bucket: "picture-this-storage",  // ← Your correct bucket
+      region: "us-east-1",
+    }
+  }
+});
+
 
 export default function Home() {
   return (
