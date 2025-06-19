@@ -3,10 +3,9 @@ import { CommentThread } from "@/components/CommentThread";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import PhotoModal from "@/components/PhotoModal";
 
-
 const TRACK_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/track_photo_view"
 
-
+// Random comment to trigger build
 
 const trackPhotoView = async (photoId: string) => {
   try {
@@ -34,11 +33,14 @@ type Props = {
   uploadItems: UploadItem[];
   unreadPhotoIds: string[];
   onUpload?: (file: File, caption: string) => void;
-  onDelete?: (key: string) => void;  // ✅ make optional
+  onDelete?: (key: string) => void;
   accountTier?: string;
+  // New camera props
+  onTakePhoto?: () => Promise<void>;
+  onStartWebCamera?: () => Promise<void>;
+  selectedImage?: File | null;
+  onImageChange?: (image: File | null) => void;
 };
-
-const uploadLimit = 10;
 
 const UserUploads: React.FC<Props> = ({
   isOwner,
@@ -48,7 +50,11 @@ const UserUploads: React.FC<Props> = ({
   unreadPhotoIds,
   onUpload,
   onDelete,
-  accountTier
+  accountTier,
+  onTakePhoto,
+  onStartWebCamera,
+  selectedImage,
+  onImageChange
 }) => {
   const [image, setImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -58,20 +64,39 @@ const UserUploads: React.FC<Props> = ({
   const [caption, setCaption] = useState("");
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
 
+  // Use selectedImage from props if available, otherwise use local state
+  const currentImage = selectedImage || image;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      const file = e.target.files[0];
+      if (onImageChange) {
+        onImageChange(file);
+      } else {
+        setImage(file);
+      }
+    }
+  };
 
   const handleUploadClick = async () => {
-    if (!image) return;
-    if (image.size > maxSizeBytes) {
+    if (!currentImage) return;
+    if (currentImage.size > maxSizeBytes) {
       alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
       return;
     }
 
     setUploading(true);
     if (onUpload) {
-      await onUpload(image, caption); // ✅ pass caption
+      await onUpload(currentImage, caption);
     }
-    setImage(null);
-    setCaption(""); // ✅ reset caption after upload
+    
+    // Clear the image
+    if (onImageChange) {
+      onImageChange(null);
+    } else {
+      setImage(null);
+    }
+    setCaption("");
     setUploading(false);
   };
 
@@ -82,20 +107,100 @@ const UserUploads: React.FC<Props> = ({
       </h2>
       <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: 16 }}>
         {isOwner
-          ? `You’ve uploaded ${uploadItems.length} of ${uploadLimit} photos.`
+          ? `You've uploaded ${uploadItems.length} of ${uploadLimit} photos.`
           : `A glimpse into ${username}'s visual world.`}
       </p>
+      
       {onUpload && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", marginBottom: 16 }}>
+          
+          {/* Photo input options */}
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+            <label 
+              htmlFor="file-input" 
+              style={{ 
+                display: "inline-block", 
+                padding: "0.5rem 1rem", 
+                backgroundColor: "#e5e7eb", 
+                borderRadius: "8px", 
+                fontWeight: 500, 
+                cursor: uploadItems.length >= uploadLimit ? "not-allowed" : "pointer",
+                opacity: uploadItems.length >= uploadLimit ? 0.5 : 1
+              }}
+            >
+              📁 Choose Photo
+            </label>
+            
+            {onTakePhoto && (
+              <button 
+                type="button" 
+                onClick={onTakePhoto}
+                disabled={uploadItems.length >= uploadLimit}
+                style={{ 
+                  padding: "0.5rem 1rem", 
+                  backgroundColor: "#3b82f6", 
+                  color: "white",
+                  border: "none", 
+                  borderRadius: "8px", 
+                  fontWeight: 500, 
+                  cursor: uploadItems.length >= uploadLimit ? "not-allowed" : "pointer",
+                  opacity: uploadItems.length >= uploadLimit ? 0.5 : 1
+                }}
+              >
+                📷 Take Photo
+              </button>
+            )}
+            
+            {onStartWebCamera && (
+              <button 
+                type="button" 
+                onClick={onStartWebCamera}
+                disabled={uploadItems.length >= uploadLimit}
+                style={{ 
+                  padding: "0.5rem 1rem", 
+                  backgroundColor: "#10b981", 
+                  color: "white",
+                  border: "none", 
+                  borderRadius: "8px", 
+                  fontWeight: 500, 
+                  cursor: uploadItems.length >= uploadLimit ? "not-allowed" : "pointer",
+                  opacity: uploadItems.length >= uploadLimit ? 0.5 : 1,
+                  fontSize: "0.9rem"
+                }}
+              >
+                🌐 Web Camera
+              </button>
+            )}
+          </div>
+
           <input
+            id="file-input"
             type="file"
             accept="image/*"
-            onChange={(e) => {
-              if (e.target.files?.length) setImage(e.target.files[0]);
-            }}
+            onChange={handleFileChange}
             disabled={uploadItems.length >= uploadLimit}
-            style={{ marginTop: 8, marginBottom: 8 }}
+            style={{ display: "none" }}
           />
+
+          {/* Show image preview */}
+          {currentImage && (
+            <div style={{ marginBottom: "1rem" }}>
+              <img 
+                src={URL.createObjectURL(currentImage)} 
+                alt="Selected" 
+                style={{ 
+                  maxWidth: "200px", 
+                  maxHeight: "200px", 
+                  objectFit: "cover",
+                  borderRadius: "8px",
+                  border: "2px solid #e5e7eb"
+                }}
+              />
+              <p style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.5rem" }}>
+                Selected: {currentImage.name}
+              </p>
+            </div>
+          )}
 
           <input
             type="text"
@@ -117,7 +222,7 @@ const UserUploads: React.FC<Props> = ({
           </p>
 
           <button
-            disabled={!image || uploading || uploadItems.length >= uploadLimit}
+            disabled={!currentImage || uploading || uploadItems.length >= uploadLimit}
             onClick={handleUploadClick}
             style={{
               padding: "8px 16px",
@@ -126,8 +231,9 @@ const UserUploads: React.FC<Props> = ({
               border: "none",
               borderRadius: 8,
               fontWeight: "bold",
-              cursor: uploading ? "not-allowed" : "pointer",
+              cursor: uploading || !currentImage || uploadItems.length >= uploadLimit ? "not-allowed" : "pointer",
               marginBottom: 8,
+              opacity: uploading || !currentImage || uploadItems.length >= uploadLimit ? 0.6 : 1
             }}
           >
             {uploading ? "Uploading..." : "Upload"}
@@ -172,23 +278,23 @@ const UserUploads: React.FC<Props> = ({
                     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                   }}
                 >
-                <img
-                  src={url}
-                  alt="User creation"
-                  onLoad={() => {
-                    if (!isOwner) {
-                      trackPhotoView(key); // track views
-                    }
-                  }}
-                  onClick={() => setSelectedPhotoUrl(url)} // 👈 add this line
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",
-                    borderRadius: 8,
-                    display: "block",
-                    cursor: "zoom-in", // 👈 visual hint
-                  }}
-                />
+                  <img
+                    src={url}
+                    alt="User creation"
+                    onLoad={() => {
+                      if (!isOwner) {
+                        trackPhotoView(key);
+                      }
+                    }}
+                    onClick={() => setSelectedPhotoUrl(url)}
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 8,
+                      display: "block",
+                      cursor: "zoom-in",
+                    }}
+                  />
                   {hasUnread && (
                     <span
                       style={{
@@ -256,10 +362,11 @@ const UserUploads: React.FC<Props> = ({
                 </div>
               );
             })}
+          </div>
+          
           {selectedPhotoUrl && (
             <PhotoModal imageUrl={selectedPhotoUrl} onClose={() => setSelectedPhotoUrl(null)} />
           )}
-          </div>
         </>
       )}
     </div>

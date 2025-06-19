@@ -1,11 +1,10 @@
 import "@/lib/configureAmplify";
-import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
+import React, { useState, ChangeEvent, FormEvent, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import Link from "next/link";
-import { fetchAuthSession } from "aws-amplify/auth";
-import { uploadData } from "@aws-amplify/storage";
-
+import { uploadData } from 'aws-amplify/storage';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
@@ -29,6 +28,11 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [accountTier, setAccountTier] = useState<string>("free");
   const [usage, setUsage] = useState<{ used: number; remaining: number; limit: number } | null>(null);
+  
+  // Camera states - simplified for Capacitor
+  const [showCamera, setShowCamera] = useState<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const fetchProfileAndUsage = async () => {
@@ -62,13 +66,243 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     }
   }, [user.username]);
 
+  // Take photo with Capacitor Camera plugin
+  const takePhoto = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (image.dataUrl) {
+        // Convert data URL to File
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        
+        setImage(file);
+        setFeedback(null); // Clear previous feedback
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      alert('Could not take photo. Please try again.');
+    }
+  };
+
+  // Fallback web camera for desktop/browsers
+  const startWebCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment' // Use back camera on mobile
+        }
+      });
+      setShowCamera(true);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Could not access camera. Please check permissions.");
+    }
+  };
+
+  // Stop web camera
+  const stopWebCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+  };
+
+  // Capture photo from web camera
+  const captureWebPhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return;
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw the video frame to canvas
+    ctx.drawImage(video, 0, 0);
+
+    // Convert canvas to blob then to File
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        setImage(file);
+        stopWebCamera();
+        setFeedback(null); // Clear previous feedback
+      }
+    }, 'image/jpeg', 0.9);
+  };
+
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       setImage(e.target.files[0]);
     } else {
       setImage(null);
     }
+    // Clear previous feedback when new image is selected
     setFeedback(null);
+  }
+
+  // Aggressive compression for large images to avoid multipart upload
+  async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Start with aggressive sizing for large files
+        const isLargeFile = file.size > 10 * 1024 * 1024; // 10MB+
+        const maxSize = isLargeFile ? 1200 : 1500; // Smaller for large files
+        
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress with aggressive quality for large files
+        ctx.drawImage(img, 0, 0, width, height);
+        const quality = isLargeFile ? 0.7 : 0.85; // Lower quality for large files
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            console.log(`📦 Compressed ${file.size} bytes to ${compressedFile.size} bytes`);
+            
+            // If still too large, compress more aggressively
+            if (compressedFile.size > 4 * 1024 * 1024) { // Still > 4MB
+              console.log("🔄 Still too large, compressing more aggressively...");
+              compressMoreAggressively(file, resolve);
+            } else {
+              resolve(compressedFile);
+            }
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Super aggressive compression for stubborn large files
+  function compressMoreAggressively(file: File, resolve: (file: File) => void) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // Much smaller dimensions
+      const maxSize = 800;
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const superCompressed = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          console.log(`📦 Super compressed to ${superCompressed.size} bytes`);
+          resolve(superCompressed);
+        } else {
+          resolve(file);
+        }
+      }, 'image/jpeg', 0.5); // Very low quality but guaranteed small size
+    };
+    
+    img.src = URL.createObjectURL(file);
+  }
+
+  // Force single-part upload with uploadData
+  async function uploadWithSinglePart(file: File, path: string) {
+    console.log("🌐 Using uploadData with forced single-part upload");
+    
+    try {
+      const result = await uploadData({
+        path,
+        data: file,
+        options: {
+          contentType: file.type,
+          useAccelerateEndpoint: false,
+          // These might help force single-part upload
+          onProgress: undefined,
+          // Try to prevent multipart by keeping size small in AWS's eyes
+        }
+      }).result;
+      
+      console.log("✅ Single-part upload completed:", result);
+      return result;
+      
+    } catch (error: unknown) {
+      console.error("❌ uploadData failed:", error);
+      throw error;
+    }
+  }
+
+  // Function to reset the form completely
+  function resetForm() {
+    setImage(null);
+    setFeedback(null);
+    setLoading(false);
+    stopWebCamera(); // Stop camera if running
+    // Reset the file input
+    const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -83,23 +317,27 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setFeedback(null);
 
     try {
-      const session = await fetchAuthSession();
-      const identityId = session.identityId;
+      // Compress the image first to avoid multipart upload
+      console.log("📦 Compressing image to avoid multipart upload...");
+      const compressedImage = await compressImage(image);
+      
+      // Use timestamp to ensure unique filenames
+      const timestamp = Date.now();
+      const path = `public/user-creations/${user.username}/${timestamp}-${compressedImage.name}`;
 
-      const path = `public/user-creations/${user.username}/${image.name}`;
+      console.log("🚀 Starting upload to path:", path);
 
-      const result1 = await uploadData({
-        path,            // ✅ custom S3 path
-        data: image,     // ✅ your File or Blob
-        options: {
-          contentType: image.type
-        }
-      });
+      // Use uploadData with single-part approach
+      const result1 = await uploadWithSinglePart(compressedImage, path);
 
-      console.log("✅ Upload result:", result1);
+      console.log("✅ Upload completed:", result1);
 
+      // Add a delay to ensure S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const useRubric = accountTier === "premium";
+
+      console.log("🔄 Sending for analysis...");
 
       const result = await invokeLambdaIam({
         url: REVIEW_PHOTO_LAMBDA_URL,
@@ -114,6 +352,8 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         },
       });
 
+      console.log("✅ Analysis completed:", result);
+
       const feedbackResult: FeedbackResult = {
         feedback: result?.feedback || result?.result || "No feedback.",
         score: result?.score,
@@ -123,6 +363,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
 
       setFeedback(feedbackResult);
       window.scrollTo({ top: 0, behavior: "smooth" });
+
     } catch (err) {
       console.error("Error analyzing image:", err);
       setFeedback({ feedback: `Error analyzing image: ${err}` });
@@ -145,14 +386,126 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
-          <label htmlFor="fileInput" style={{ display: "inline-block", padding: "0.75rem 1.5rem", backgroundColor: "#e5e7eb", borderRadius: "9999px", fontWeight: 500, cursor: "pointer" }}>
-            📷 Choose a Photo
-          </label>
+          
+          {/* Photo upload options */}
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <label htmlFor="fileInput" style={{ display: "inline-block", padding: "0.75rem 1.5rem", backgroundColor: "#e5e7eb", borderRadius: "9999px", fontWeight: 500, cursor: "pointer" }}>
+              📁 Choose Photo
+            </label>
+            <button 
+              type="button" 
+              onClick={takePhoto}
+              style={{ 
+                padding: "0.75rem 1.5rem", 
+                backgroundColor: "#3b82f6", 
+                color: "white",
+                border: "none", 
+                borderRadius: "9999px", 
+                fontWeight: 500, 
+                cursor: "pointer" 
+              }}
+            >
+              📷 Take Photo
+            </button>
+            <button 
+              type="button" 
+              onClick={startWebCamera}
+              style={{ 
+                padding: "0.75rem 1.5rem", 
+                backgroundColor: "#10b981", 
+                color: "white",
+                border: "none", 
+                borderRadius: "9999px", 
+                fontWeight: 500, 
+                cursor: "pointer",
+                fontSize: "0.9rem"
+              }}
+            >
+              🌐 Web Camera
+            </button>
+          </div>
+
           <input id="fileInput" type="file" accept="image/*" onChange={handleChange} style={{ display: "none" }} />
 
-          <button type="submit" disabled={loading} style={{ padding: "0.75rem 1.5rem", backgroundColor: "#b76e79", color: "white", border: "none", borderRadius: "9999px", fontSize: "1rem", fontWeight: "bold", cursor: "pointer", width: "100%", maxWidth: "300px" }}>
+          {/* Camera interface */}
+          {showCamera && (
+            <div style={{ width: "100%", maxWidth: "400px", backgroundColor: "#000", borderRadius: "12px", overflow: "hidden", position: "relative" }}>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                style={{ width: "100%", height: "300px", objectFit: "cover" }}
+              />
+              <div style={{ position: "absolute", bottom: "1rem", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "1rem" }}>
+                <button 
+                  type="button" 
+                  onClick={captureWebPhoto}
+                  style={{ 
+                    width: "60px", 
+                    height: "60px", 
+                    borderRadius: "50%", 
+                    backgroundColor: "white", 
+                    border: "4px solid #ccc", 
+                    cursor: "pointer",
+                    fontSize: "1.2rem"
+                  }}
+                >
+                  📸
+                </button>
+                <button 
+                  type="button" 
+                  onClick={stopWebCamera}
+                  style={{ 
+                    padding: "0.5rem 1rem", 
+                    backgroundColor: "#ef4444", 
+                    color: "white", 
+                    border: "none", 
+                    borderRadius: "8px", 
+                    cursor: "pointer" 
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Hidden canvas for photo capture */}
+          <canvas ref={canvasRef} style={{ display: "none" }} />
+
+          <button type="submit" disabled={loading || !image} style={{ 
+            padding: "0.75rem 1.5rem", 
+            backgroundColor: (loading || !image) ? "#9ca3af" : "#b76e79", 
+            color: "white", 
+            border: "none", 
+            borderRadius: "9999px", 
+            fontSize: "1rem", 
+            fontWeight: "bold", 
+            cursor: (loading || !image) ? "not-allowed" : "pointer", 
+            width: "100%", 
+            maxWidth: "300px" 
+          }}>
             {loading ? "Analyzing..." : "Analyze Photo"}
           </button>
+
+          {/* Add a reset button for convenience */}
+          {(image || feedback) && (
+            <button 
+              type="button" 
+              onClick={resetForm}
+              style={{ 
+                padding: "0.5rem 1rem", 
+                backgroundColor: "#6b7280", 
+                color: "white", 
+                border: "none", 
+                borderRadius: "9999px", 
+                fontSize: "0.9rem", 
+                cursor: "pointer" 
+              }}
+            >
+              🗑️ Clear & Start Over
+            </button>
+          )}
         </form>
 
         {accountTier !== "premium" && (
@@ -212,7 +565,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
                 <ul style={{ paddingLeft: 20 }}>
                   {feedback.tips.map((tip, idx) => <li key={idx}>{tip}</li>)}
                 </ul>
-              </div>
+\            </div>
             )}
           </div>
         )}

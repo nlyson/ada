@@ -15,6 +15,9 @@ type Props = {
   onUpload: (promptId: string, file: File) => void;
   accountTier?: string;
   scavengerRetries?: number;
+  // New camera props
+  onTakePhoto?: (promptId: string) => Promise<void>;
+  onStartWebCamera?: (promptId: string) => Promise<void>;
 };
 
 const ScavengerHuntSection: React.FC<Props> = ({
@@ -29,7 +32,9 @@ const ScavengerHuntSection: React.FC<Props> = ({
   loadingMap,
   onUpload,
   accountTier,
-  scavengerRetries
+  scavengerRetries,
+  onTakePhoto,
+  onStartWebCamera
 }) => {
   const huntStart = new Date(huntStartDate);
   const today = new Date();
@@ -39,7 +44,6 @@ const ScavengerHuntSection: React.FC<Props> = ({
   );
 
   const scavengerPrompts = huntPrompts;
-
 
   return (
     <div style={{ marginTop: 48 }}>
@@ -95,6 +99,8 @@ const ScavengerHuntSection: React.FC<Props> = ({
         accountTier={accountTier}
         scavengerRetries={scavengerRetries}
         startDate={huntStartDate}
+        onTakePhoto={onTakePhoto}
+        onStartWebCamera={onStartWebCamera}
       />
       
     </div>

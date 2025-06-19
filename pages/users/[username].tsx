@@ -1,5 +1,5 @@
 // pages/users/[username].tsx
-import React, { useState, useEffect, ChangeEvent } from "react";
+import React, { useState, useEffect, ChangeEvent, useRef } from "react";
 import { useRouter } from "next/router";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import ProfileCard from "@/components/ProfileCard";
@@ -11,7 +11,9 @@ import ProfileDetails from "@/components/ProfileDetails";
 import { UserStatsCard } from "@/components/UserStatsCard";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { fetchAuthSession } from "aws-amplify/auth";
-import { Amplify } from 'aws-amplify';
+import { uploadData } from 'aws-amplify/storage';
+import { Capacitor } from '@capacitor/core';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 type UserProfile = {
   username: string;
@@ -68,7 +70,6 @@ type ScavengerHunt = {
   }[];
 };
 
-
 const UserPage: React.FC<AppProps> = ({ user }) => {
   const router = useRouter();
   const username = router.query.username as string;
@@ -86,6 +87,13 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   const [availableHunts, setAvailableHunts] = useState<ScavengerHunt[]>([]);
   const [selectedHuntId, setSelectedHuntId] = useState("");
 
+  // Camera states
+  const [showCamera, setShowCamera] = useState<boolean>(false);
+  const [currentCameraMode, setCurrentCameraMode] = useState<'creation' | 'hunt' | null>(null);
+  const [currentPromptId, setCurrentPromptId] = useState<string>('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const [editProfile, setEditProfile] = useState<UserProfile>({
     username,
     displayName: "",
@@ -96,11 +104,109 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   const [scavengerResults, setScavengerResults] = useState<{ [promptId: string]: { score: number, rubric: any, feedback: string } }>({});
   const [userAccountTier, setUserAccountTier] = useState("free");
 
-
   const isOwner = user?.username === username;
 
-  console.log('🔥 IN username:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
+  // Take photo with Capacitor Camera plugin
+  const takePhoto = async (mode: 'creation' | 'hunt', promptId?: string) => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
 
+      if (image.dataUrl) {
+        // Convert data URL to File
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        
+        // Handle the photo based on mode
+        if (mode === 'creation') {
+          setImage(file);
+        } else if (mode === 'hunt' && promptId) {
+          await handleHuntUpload(promptId, file);
+        }
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      alert('Could not take photo. Please try again.');
+    }
+  };
+
+  // Start web camera for desktop/browsers
+  const startWebCamera = async (mode: 'creation' | 'hunt', promptId?: string) => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment' // Use back camera on mobile
+        }
+      });
+      setShowCamera(true);
+      setCurrentCameraMode(mode);
+      setCurrentPromptId(promptId || '');
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Could not access camera. Please check permissions.");
+    }
+  };
+
+  // Stop web camera
+  const stopWebCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+    setCurrentCameraMode(null);
+    setCurrentPromptId('');
+  };
+
+  // Capture photo from web camera
+  const captureWebPhoto = async () => {
+    if (!videoRef.current || !canvasRef.current || !currentCameraMode) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return;
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw the video frame to canvas
+    ctx.drawImage(video, 0, 0);
+
+    // Convert canvas to blob then to File
+    canvas.toBlob(async (blob) => {
+      if (blob) {
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        
+        stopWebCamera();
+        
+        // Handle the photo based on current mode
+        if (currentCameraMode === 'creation') {
+          setImage(file);
+        } else if (currentCameraMode === 'hunt' && currentPromptId) {
+          await handleHuntUpload(currentPromptId, file);
+        }
+      }
+    }, 'image/jpeg', 0.9);
+  };
 
   async function uploadToCustomBucket(file: File, s3Key: string) {
     // Step 1: Upload to S3
@@ -132,7 +238,6 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     );
   }
 
-
   async function fetchAllScavengerResults(huntId: string) {
     try {
       const res = await invokeLambdaIam({
@@ -159,20 +264,26 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     }
   }
 
-
   async function handleHuntUpload(promptId: string, file: File) {
     setHuntUploadLoading((prev) => ({ ...prev, [promptId]: true }));
 
     try {
-      // Step 1: Upload to S3
-      const s3Key = `public/scavenger-hunts/${selectedHuntId}/${user.username}/${promptId}.jpg`;
+      const path = `public/scavenger-hunts/${selectedHuntId}/${user.username}/${promptId}.jpg`;
 
-      await uploadToCustomBucket(file, s3Key);
+      console.log("🚀 Starting platform-specific upload to path:", path);
+      console.log("📱 Platform:", Capacitor.getPlatform());
+      
+      // Use platform-specific upload
+      const uploadResult = await uploadForPlatform(file, path);
+      console.log("✅ Upload completed:", uploadResult);
 
+      // Add a small delay to ensure S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${s3Key}`;
+      const imageUrl = `${PICTURE_THIS_STORAGE_FULL_PATH}/${path}`;
 
-      // Step 2: Call Lambda with just the s3Key
+      // Call Lambda to register submission
+      console.log("🔄 Registering hunt submission with Lambda...");
       await invokeLambdaIam({
         url: SUBMIT_HUNT_PHOTO_URL,
         method: "POST",
@@ -180,25 +291,37 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           huntId: selectedHuntId,
           username: user.username,
           promptId,
-          s3Key,
+          s3Key: path,
         },
       });
+      console.log("✅ Hunt submission completed");
+
+      // 🔄 REFRESH CREDENTIALS before scoring to prevent signature mismatch
+      console.log("🔄 Refreshing credentials before scoring...");
+      await fetchAuthSession({ forceRefresh: true });
 
       // Step 3: Review / score the photo
+      console.log("🎯 Starting photo scoring...");
       await invokeLambdaIam({
         url: REVIEW_PHOTO_LAMBDA_URL,
         method: "POST",
         body: {
           imageUrl,
-          s3Key,
+          path,
           rubric: true,
           username: user.username,
           huntId: selectedHuntId,
           scavengerPromptId: promptId,
         },
       });
+      console.log("✅ Photo scoring completed");
+
+      // 🔄 REFRESH CREDENTIALS again before stats updates
+      console.log("🔄 Refreshing credentials before stats updates...");
+      await fetchAuthSession({ forceRefresh: true });
 
       // Step 4: Update stats
+      console.log("📊 Updating user stats...");
       await invokeLambdaIam({
         url: UPDATE_USER_STATS_LAMBDA_URL,
         method: "POST",
@@ -220,12 +343,16 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           },
         },
       });
+      console.log("✅ Stats updates completed");
 
       setScavengerProgress((prev) => ({ ...prev, [promptId]: imageUrl }));
 
+      // Refresh results to get the new scores
       await fetchAllScavengerResults(selectedHuntId);
+
     } catch (err) {
-      console.error("Upload or scoring failed:", err);
+      console.error("❌ Upload or scoring failed:", err);
+      alert(`Upload or scoring failed: ${err}`);
     } finally {
       setHuntUploadLoading((prev) => ({ ...prev, [promptId]: false }));
     }
@@ -407,8 +534,6 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
       }
     };
 
-
-
     fetchLoggedInUserProfile();
     fetchAvailableHunts();
     fetchUnreadFlags();
@@ -436,17 +561,28 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
     setUploading(true);
 
     try {
-      const s3Key = `user-creations/${user.username}/${Date.now()}-${file.name}`;
-
+      const path = `public/user-creations/${user.username}/${Date.now()}-${file.name}`;
 
       if (!caption || caption.trim().length === 0) {
         caption = "(Untitled)";
       }
 
-      // Upload to S3 using helper
-      await uploadToCustomBucket(file, s3Key);
+      console.log("🚀 Starting platform-specific upload to path:", path);
+      console.log("📱 Platform:", Capacitor.getPlatform());
+      
+      // Use platform-specific upload
+      const uploadResult = await uploadForPlatform(file, path);
+      console.log("✅ Upload completed:", uploadResult);
 
-      // Trigger backend to update DB entries
+      // Add a small delay to ensure S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 🔄 REFRESH CREDENTIALS before Lambda calls
+      console.log("🔄 Refreshing credentials before Lambda registration...");
+      await fetchAuthSession({ forceRefresh: true });
+
+      // Register with Lambda
+      console.log("🔄 Registering with Lambda...");
       await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
@@ -454,16 +590,22 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           action: "register",
           username: user.username,
           fileName: file.name,
-          s3Key,
+          s3Key: path,
           caption
         },
       });
+      console.log("✅ Lambda registration completed");
+
+      // 🔄 REFRESH CREDENTIALS before fetching updated list
+      console.log("🔄 Refreshing credentials before fetching updated list...");
+      await fetchAuthSession({ forceRefresh: true });
 
       // Re-fetch updated creations list
+      console.log("📋 Fetching updated creations list...");
       const res = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
-        body: { action: "list", username },
+        body: { action: "list", username: user.username },
       });
 
       const mapped = res.items?.map((item: any) => ({
@@ -472,8 +614,14 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         caption: item.caption,
       })) || [];
       setUploadItems(mapped);
+      console.log("✅ Updated creations list fetched");
 
-      // Stats
+      // 🔄 REFRESH CREDENTIALS before stats updates
+      console.log("🔄 Refreshing credentials before stats updates...");
+      await fetchAuthSession({ forceRefresh: true });
+
+      // Update stats
+      console.log("📊 Updating user stats...");
       await invokeLambdaIam({
         url: UPDATE_USER_STATS_LAMBDA_URL,
         method: "POST",
@@ -495,10 +643,13 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           },
         },
       });
+      console.log("✅ Stats updates completed");
 
       setImage(null);
+
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("❌ Upload error:", err);
+      alert(`Upload failed: ${err}`);
     } finally {
       setUploading(false);
     }
@@ -507,18 +658,172 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   async function handleDelete(key: string) {
     if (!confirm("Delete this image?")) return;
     try {
-      await invokeLambdaIam({
+      const result = await invokeLambdaIam({
         url: UPDATE_USER_CREATIONS_LAMBDA_URL,
         method: "POST",
         body: {
           action: "delete",
           username: user.username,
-          fileName: key.replace(`user-creations/${user.username}/`, ""),
+          s3Key: key, // ✅ Send the full key
         },
       });
+      console.log('------------Delete result', result)
       setUploadItems((prev) => prev.filter((item) => item.key !== key));
     } catch (err) {
       console.error("Delete error:", err);
+    }
+  }
+
+  // Aggressive compression for large images to avoid multipart upload
+  async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Start with aggressive sizing for large files
+        const isLargeFile = file.size > 10 * 1024 * 1024; // 10MB+
+        const maxSize = isLargeFile ? 1200 : 1500; // Smaller for large files
+        
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress with aggressive quality for large files
+        ctx.drawImage(img, 0, 0, width, height);
+        const quality = isLargeFile ? 0.7 : 0.85; // Lower quality for large files
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            console.log(`📦 Compressed ${file.size} bytes to ${compressedFile.size} bytes`);
+            
+            // If still too large, compress more aggressively
+            if (compressedFile.size > 4 * 1024 * 1024) { // Still > 4MB
+              console.log("🔄 Still too large, compressing more aggressively...");
+              compressMoreAggressively(file, resolve);
+            } else {
+              resolve(compressedFile);
+            }
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Super aggressive compression for stubborn large files
+  function compressMoreAggressively(file: File, resolve: (file: File) => void) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // Much smaller dimensions
+      const maxSize = 800;
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const superCompressed = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          console.log(`📦 Super compressed to ${superCompressed.size} bytes`);
+          resolve(superCompressed);
+        } else {
+          resolve(file);
+        }
+      }, 'image/jpeg', 0.5); // Very low quality but guaranteed small size
+    };
+    
+    img.src = URL.createObjectURL(file);
+  }
+
+  // Force single-part upload with uploadData
+  async function uploadWithSinglePart(file: File, path: string) {
+    console.log("🌐 Using uploadData with forced single-part upload");
+    
+    try {
+      const result = await uploadData({
+        path,
+        data: file,
+        options: {
+          contentType: file.type,
+          useAccelerateEndpoint: false,
+          onProgress: undefined,
+        }
+      }).result;
+      
+      console.log("✅ Single-part upload completed:", result);
+      return result;
+      
+    } catch (error: unknown) {
+      console.error("❌ uploadData failed:", error);
+      throw error;
+    }
+  }
+
+  // Updated upload function that ensures public access with compression
+  async function uploadForPlatform(file: File, path: string) {
+    console.log("🚀 Starting upload with compression to path:", path);
+    console.log("📁 Original file size:", file.size);
+    
+    try {
+      // Compress the image first to avoid multipart upload
+      console.log("📦 Compressing image to avoid multipart upload...");
+      const compressedFile = await compressImage(file);
+      
+      console.log("✅ Compression completed");
+      console.log("📁 Compressed file size:", compressedFile.size);
+      
+      // Use uploadData with the compressed file
+      const result = await uploadWithSinglePart(compressedFile, path);
+      
+      // Small delay for S3 consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return result;
+      
+    } catch (error) {
+      console.error("❌ Upload with compression failed:", error);
+      throw error;
     }
   }
 
@@ -542,7 +847,6 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           </span>
         )}
       </h1>
-
 
       <ProfileCard
         username={username}
@@ -584,7 +888,6 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
               ];
               const completeness = Math.round((filled.filter(Boolean).length / 4) * 100);
 
-
               await invokeLambdaIam({
                 url: UPDATE_USER_STATS_LAMBDA_URL,
                 method: "POST",
@@ -604,6 +907,99 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           saving={savingProfile}
         />
       )}
+
+      {/* Camera interface - only show when camera is active */}
+      {showCamera && (
+        <div style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          backgroundColor: 'rgba(0,0,0,0.9)', 
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{ 
+            width: "90%", 
+            maxWidth: "500px", 
+            backgroundColor: "#000", 
+            borderRadius: "12px", 
+            overflow: "hidden", 
+            position: "relative" 
+          }}>
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              style={{ width: "100%", height: "400px", objectFit: "cover" }}
+            />
+            <div style={{ 
+              position: "absolute", 
+              bottom: "1rem", 
+              left: "50%", 
+              transform: "translateX(-50%)", 
+              display: "flex", 
+              gap: "1rem",
+              alignItems: "center"
+            }}>
+              <button 
+                type="button" 
+                onClick={captureWebPhoto}
+                style={{ 
+                  width: "70px", 
+                  height: "70px", 
+                  borderRadius: "50%", 
+                  backgroundColor: "white", 
+                  border: "4px solid #ccc", 
+                  cursor: "pointer",
+                  fontSize: "1.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                📸
+              </button>
+              <button 
+                type="button" 
+                onClick={stopWebCamera}
+                style={{ 
+                  padding: "0.75rem 1.5rem", 
+                  backgroundColor: "#ef4444", 
+                  color: "white", 
+                  border: "none", 
+                  borderRadius: "8px", 
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+            {currentCameraMode && (
+              <div style={{
+                position: "absolute",
+                top: "1rem",
+                left: "1rem",
+                backgroundColor: "rgba(0,0,0,0.7)",
+                color: "white",
+                padding: "0.5rem 1rem",
+                borderRadius: "8px",
+                fontSize: "0.9rem"
+              }}>
+                📷 {currentCameraMode === 'creation' ? 'Taking photo for gallery' : 'Taking photo for scavenger hunt'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Hidden canvas for photo capture */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
       <UserUploads
         username={username}
         viewerUsername={user.username}
@@ -613,7 +1009,13 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         onUpload={isOwner ? handleUpload : undefined}
         onDelete={isOwner ? handleDelete : undefined}
         accountTier={userAccountTier}
+        // Pass camera functions to UserUploads component
+        onTakePhoto={isOwner ? () => takePhoto('creation') : undefined}
+        onStartWebCamera={isOwner ? () => startWebCamera('creation') : undefined}
+        selectedImage={image}
+        onImageChange={setImage}
       />
+      
       <ChallengeSubmissions
         photos={photos}
         loading={loading}
@@ -623,31 +1025,34 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
           setPhotos((prev) => prev.filter((p) => p.challengeId !== challengeId));
         }}
       />
+      
       {profile?.accountTier === "premium" && (
         <div style={{ marginBottom: 24 }}>
           <label htmlFor="hunt-select" style={{ fontWeight: "bold", marginRight: 8 }}>
             🧭 Select Scavenger Hunt:
           </label>
-            <select
-              id="hunt-select"
-              value={selectedHuntId}
-              onChange={(e) => setSelectedHuntId(e.target.value)}
-              style={{ padding: "6px 12px", borderRadius: 6, fontSize: "1rem" }}
-              disabled={availableHunts.length === 0}
-            >
-              {availableHunts.map((hunt) => (
-                <option key={hunt.huntId} value={hunt.huntId}>
-                  {hunt.name}
-                </option>
-              ))}
-            </select>
+          <select
+            id="hunt-select"
+            value={selectedHuntId}
+            onChange={(e) => setSelectedHuntId(e.target.value)}
+            style={{ padding: "6px 12px", borderRadius: 6, fontSize: "1rem" }}
+            disabled={availableHunts.length === 0}
+          >
+            {availableHunts.map((hunt) => (
+              <option key={hunt.huntId} value={hunt.huntId}>
+                {hunt.name}
+              </option>
+            ))}
+          </select>
         </div>
       )}
+      
       <ScavengerHuntSection
         huntId={selectedHuntId}
         huntName={selectedHunt?.name || ""}
-        huntStartDate={selectedHunt?.startDate || "2025-05-01"} // fallback
-        huntPrompts={selectedHunt?.prompts || []}        username={username}
+        huntStartDate={selectedHunt?.startDate || "2025-05-01"}
+        huntPrompts={selectedHunt?.prompts || []}
+        username={username}
         isOwner={isOwner}
         progress={scavengerProgress}
         results={scavengerResults}
@@ -655,9 +1060,11 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
         loadingMap={huntUploadLoading}
         accountTier={profile?.accountTier}
         scavengerRetries={profile?.scavengerRetries}
+        // Pass camera functions for scavenger hunt
+        onTakePhoto={isOwner ? (promptId: string) => takePhoto('hunt', promptId) : undefined}
+        onStartWebCamera={isOwner ? (promptId: string) => startWebCamera('hunt', promptId) : undefined}
       />
     </div>
-
   );
 };
 
