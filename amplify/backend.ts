@@ -7,6 +7,7 @@ const backend = defineBackend({
 backend.addOutput({
   storage: {
     bucket_name: "picture-this-storage",
+    aws_region: 'us-east-1'
   },
   auth: {
     user_pool_id: "us-east-1_vin6qLM49",
