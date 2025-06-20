@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { getCurrentUser } from "aws-amplify/auth";
 import { fetchAuthSession } from "aws-amplify/auth";
+import { uploadData } from 'aws-amplify/storage';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import ScavengerHuntSection from "@/components/ScavengerHuntSection";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const TEST_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/test_lambda";
 const LIST_HUNTS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/list_scavenger_hunts";
@@ -14,7 +15,6 @@ const GET_SCAVENGER_RESULTS_URL = "https://x69ndosila.execute-api.us-east-1.amaz
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 const UPDATE_USER_STATS_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/update_user_stats";
 const SUBMIT_HUNT_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/submit-hunt-photo";
-
 
 const STORAGE_URL = "https://picture-this-storage.s3.amazonaws.com";
 
@@ -35,6 +35,13 @@ export default function ScavengerHuntPage() {
   const [loadingMap, setLoadingMap] = useState<{ [promptId: string]: boolean }>({});
   const [scavengerRetries, setScavengerRetries] = useState<number | undefined>();
 
+  // Camera states
+  const [showCameraMap, setShowCameraMap] = useState<{ [promptId: string]: boolean }>({});
+  const [selectedImages, setSelectedImages] = useState<{ [promptId: string]: File }>({});
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [currentPromptId, setCurrentPromptId] = useState<string>("");
+
   const router = useRouter();
 
   useEffect(() => {
@@ -43,7 +50,7 @@ export default function ScavengerHuntPage() {
       .catch(() => router.push("/"));
   }, [router]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!username) return;
 
     async function fetchData() {
@@ -119,35 +126,251 @@ export default function ScavengerHuntPage() {
     fetchProgressAndResults();
   }, [username, selectedHuntId]);
 
-    const handleUpload = async (promptId: string, file: File) => {
+  // Take photo with Capacitor Camera plugin
+  const takePhoto = async (promptId: string) => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (image.dataUrl) {
+        // Convert data URL to File
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        
+        setSelectedImages(prev => ({ ...prev, [promptId]: file }));
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      alert('Could not take photo. Please try again.');
+    }
+  };
+
+  // Start web camera for specific prompt
+  const startWebCamera = async (promptId: string) => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment' // Use back camera on mobile
+        }
+      });
+      setShowCameraMap(prev => ({ ...prev, [promptId]: true }));
+      setCurrentPromptId(promptId);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Could not access camera. Please check permissions.");
+    }
+  };
+
+  // Stop web camera
+  const stopWebCamera = (promptId: string) => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setShowCameraMap(prev => ({ ...prev, [promptId]: false }));
+    setCurrentPromptId("");
+  };
+
+  // Capture photo from web camera
+  const captureWebPhoto = () => {
+    if (!videoRef.current || !canvasRef.current || !currentPromptId) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return;
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw the video frame to canvas
+    ctx.drawImage(video, 0, 0);
+
+    // Convert canvas to blob then to File
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        setSelectedImages(prev => ({ ...prev, [currentPromptId]: file }));
+        stopWebCamera(currentPromptId);
+      }
+    }, 'image/jpeg', 0.9);
+  };
+
+  // Handle file selection
+  const handleFileSelect = (promptId: string, file: File) => {
+    setSelectedImages(prev => ({ ...prev, [promptId]: file }));
+  };
+
+  // Aggressive compression for large images
+  async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Start with aggressive sizing for large files
+        const isLargeFile = file.size > 10 * 1024 * 1024; // 10MB+
+        const maxSize = isLargeFile ? 1200 : 1500; // Smaller for large files
+        
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress with aggressive quality for large files
+        ctx.drawImage(img, 0, 0, width, height);
+        const quality = isLargeFile ? 0.7 : 0.85; // Lower quality for large files
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            console.log(`📦 Compressed ${file.size} bytes to ${compressedFile.size} bytes`);
+            
+            // If still too large, compress more aggressively
+            if (compressedFile.size > 4 * 1024 * 1024) { // Still > 4MB
+              console.log("🔄 Still too large, compressing more aggressively...");
+              compressMoreAggressively(file, resolve);
+            } else {
+              resolve(compressedFile);
+            }
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Super aggressive compression for stubborn large files
+  function compressMoreAggressively(file: File, resolve: (file: File) => void) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // Much smaller dimensions
+      const maxSize = 800;
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const superCompressed = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          console.log(`📦 Super compressed to ${superCompressed.size} bytes`);
+          resolve(superCompressed);
+        } else {
+          resolve(file);
+        }
+      }, 'image/jpeg', 0.5); // Very low quality but guaranteed small size
+    };
+    
+    img.src = URL.createObjectURL(file);
+  }
+
+  // Force single-part upload with uploadData
+  async function uploadWithSinglePart(file: File, path: string) {
+    console.log("🌐 Using uploadData with forced single-part upload");
+    
+    try {
+      const result = await uploadData({
+        path,
+        data: file,
+        options: {
+          contentType: file.type,
+          useAccelerateEndpoint: false,
+        }
+      }).result;
+      
+      console.log("✅ Single-part upload completed:", result);
+      return result;
+      
+    } catch (error: unknown) {
+      console.error("❌ uploadData failed:", error);
+      throw error;
+    }
+  }
+
+  const handleUpload = async (promptId: string) => {
+    const file = selectedImages[promptId];
+    if (!file) {
+      alert("Please select an image.");
+      return;
+    }
+
     setLoadingMap(prev => ({ ...prev, [promptId]: true }));
 
     try {
+        // Compress the image first to avoid multipart upload
+        console.log("📦 Compressing image to avoid multipart upload...");
+        const compressedImage = await compressImage(file);
+        
+        // Use timestamp to ensure unique filenames
+        const timestamp = Date.now();
         const s3Key = `public/scavenger-hunts/${selectedHuntId}/${username}/${promptId}.jpg`;
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
 
-        const session = await fetchAuthSession();
-        const credentials = session.credentials;
-        if (!credentials) throw new Error("AWS credentials not found");
+        console.log("🚀 Starting upload to path:", s3Key);
 
-        const s3 = new S3Client({
-        region: "us-east-1",
-        credentials: {
-            accessKeyId: credentials.accessKeyId,
-            secretAccessKey: credentials.secretAccessKey,
-            sessionToken: credentials.sessionToken,
-        },
-        });
+        // Use uploadData with single-part approach
+        await uploadWithSinglePart(compressedImage, s3Key);
 
-        await s3.send(
-        new PutObjectCommand({
-            Bucket: "picture-this-storage",
-            Key: s3Key,
-            Body: uint8Array,
-            ContentType: file.type,
-        })
-        );
+        console.log("✅ Upload completed");
+
+        // Add a delay to ensure S3 consistency
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         const imageUrl = `${STORAGE_URL}/${s3Key}`;
 
@@ -221,6 +444,14 @@ export default function ScavengerHuntPage() {
         };
         }
         setResults(updatedResults);
+
+        // Clear the selected image after successful upload
+        setSelectedImages(prev => {
+          const newState = { ...prev };
+          delete newState[promptId];
+          return newState;
+        });
+
     } catch (err) {
         console.error("Upload failed:", err);
     } finally {
@@ -228,6 +459,200 @@ export default function ScavengerHuntPage() {
     }
     };
 
+  // Photo selection component for each prompt
+  const PhotoSelector = ({ promptId }: { promptId: string }) => {
+    const selectedImage = selectedImages[promptId];
+    const showCamera = showCameraMap[promptId];
+    const isLoading = loadingMap[promptId];
+    const hasProgress = progress[promptId];
+
+    if (hasProgress && !selectedImage) {
+      return (
+        <div style={{ marginTop: "1rem", textAlign: "center" }}>
+          <img 
+            src={progress[promptId]} 
+            alt="Submitted" 
+            style={{ 
+              width: "100%", 
+              maxHeight: "200px", 
+              objectFit: "contain", 
+              borderRadius: "8px",
+              marginBottom: "0.5rem"
+            }} 
+          />
+          <div style={{ fontSize: "0.9rem", color: "#22c55e", fontWeight: "500" }}>
+            ✅ Photo submitted
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ marginTop: "1rem" }}>
+        {/* Photo upload options */}
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center", marginBottom: "1rem" }}>
+          <label 
+            htmlFor={`fileInput-${promptId}`} 
+            style={{ 
+              display: "inline-block", 
+              padding: "0.5rem 1rem", 
+              backgroundColor: "#e5e7eb", 
+              borderRadius: "8px", 
+              fontSize: "0.9rem",
+              fontWeight: 500, 
+              cursor: "pointer" 
+            }}
+          >
+            📁 Choose Photo
+          </label>
+          <button 
+            type="button" 
+            onClick={() => takePhoto(promptId)}
+            style={{ 
+              padding: "0.5rem 1rem", 
+              backgroundColor: "#3b82f6", 
+              color: "white",
+              border: "none", 
+              borderRadius: "8px", 
+              fontSize: "0.9rem",
+              fontWeight: 500, 
+              cursor: "pointer" 
+            }}
+          >
+            📷 Take Photo
+          </button>
+          <button 
+            type="button" 
+            onClick={() => startWebCamera(promptId)}
+            style={{ 
+              padding: "0.5rem 1rem", 
+              backgroundColor: "#10b981", 
+              color: "white",
+              border: "none", 
+              borderRadius: "8px", 
+              fontSize: "0.9rem",
+              fontWeight: 500, 
+              cursor: "pointer"
+            }}
+          >
+            🌐 Web Camera
+          </button>
+        </div>
+
+        <input 
+          id={`fileInput-${promptId}`} 
+          type="file" 
+          accept="image/*" 
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFileSelect(promptId, e.target.files[0]);
+            }
+          }}
+          style={{ display: "none" }} 
+        />
+
+        {/* Camera interface */}
+        {showCamera && currentPromptId === promptId && (
+          <div style={{ 
+            width: "100%", 
+            maxWidth: "300px", 
+            backgroundColor: "#000", 
+            borderRadius: "12px", 
+            overflow: "hidden", 
+            position: "relative",
+            margin: "0 auto 1rem auto"
+          }}>
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              style={{ width: "100%", height: "200px", objectFit: "cover" }}
+            />
+            <div style={{ 
+              position: "absolute", 
+              bottom: "0.5rem", 
+              left: "50%", 
+              transform: "translateX(-50%)", 
+              display: "flex", 
+              gap: "0.5rem" 
+            }}>
+              <button 
+                type="button" 
+                onClick={captureWebPhoto}
+                style={{ 
+                  width: "40px", 
+                  height: "40px", 
+                  borderRadius: "50%", 
+                  backgroundColor: "white", 
+                  border: "2px solid #ccc", 
+                  cursor: "pointer",
+                  fontSize: "1rem"
+                }}
+              >
+                📸
+              </button>
+              <button 
+                type="button" 
+                onClick={() => stopWebCamera(promptId)}
+                style={{ 
+                  padding: "0.25rem 0.5rem", 
+                  backgroundColor: "#ef4444", 
+                  color: "white", 
+                  border: "none", 
+                  borderRadius: "6px", 
+                  cursor: "pointer",
+                  fontSize: "0.8rem"
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Selected image preview */}
+        {selectedImage && (
+          <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+            <img 
+              src={URL.createObjectURL(selectedImage)} 
+              alt="preview" 
+              style={{ 
+                width: "100%", 
+                maxHeight: "200px", 
+                objectFit: "contain", 
+                borderRadius: "8px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                filter: isLoading ? "blur(1px) grayscale(0.6)" : "none"
+              }} 
+            />
+          </div>
+        )}
+
+        {/* Upload button */}
+        {selectedImage && (
+          <div style={{ textAlign: "center" }}>
+            <button 
+              onClick={() => handleUpload(promptId)}
+              disabled={isLoading}
+              style={{ 
+                padding: "0.5rem 1rem", 
+                backgroundColor: isLoading ? "#9ca3af" : "#b76e79", 
+                color: "white", 
+                border: "none", 
+                borderRadius: "8px", 
+                fontSize: "0.9rem", 
+                fontWeight: "bold", 
+                cursor: isLoading ? "not-allowed" : "pointer",
+                width: "100%"
+              }}
+            >
+              {isLoading ? "Uploading..." : "Submit Photo"}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const selectedHunt = availableHunts.find((h) => h.huntId === selectedHuntId);
 
@@ -259,20 +684,52 @@ export default function ScavengerHuntPage() {
         </div>
       )}
 
-      <ScavengerHuntSection
-        huntId={selectedHunt.huntId}
-        huntName={selectedHunt.name}
-        huntStartDate={selectedHunt.startDate || ""}
-        huntPrompts={selectedHunt.prompts}
-        username={username}
-        isOwner={true}
-        progress={progress}
-        results={results}
-        onUpload={handleUpload}
-        loadingMap={loadingMap}
-        accountTier={accountTier}
-        scavengerRetries={scavengerRetries}
-      />
+      {/* Hunt prompts with photo selectors */}
+      <div style={{ marginTop: "2rem" }}>
+        <h2>{selectedHunt.name}</h2>
+        {selectedHunt.startDate && (
+          <p style={{ color: "#6b7280", marginBottom: "1.5rem" }}>
+            Started: {new Date(selectedHunt.startDate).toLocaleDateString()}
+          </p>
+        )}
+
+        {selectedHunt.prompts.map((prompt) => (
+          <div 
+            key={prompt.promptId} 
+            style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              padding: "1.5rem", 
+              marginBottom: "1.5rem",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              border: "1px solid #e5e7eb"
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: "1rem", color: "#1f2937" }}>
+              {prompt.text}
+            </h3>
+            
+            <PhotoSelector promptId={prompt.promptId} />
+
+            {/* Results display */}
+            {results[prompt.promptId] && (
+              <div style={{ 
+                marginTop: "1rem", 
+                padding: "1rem", 
+                backgroundColor: "#f3f4f6", 
+                borderRadius: "8px" 
+              }}>
+                <h4 style={{ marginTop: 0, fontSize: "1rem" }}>📊 Results</h4>
+                <p><strong>Score:</strong> {results[prompt.promptId].score}/100</p>
+                <p><strong>Feedback:</strong> {results[prompt.promptId].feedback}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Hidden canvas for photo capture */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
     </div>
   );
 }
