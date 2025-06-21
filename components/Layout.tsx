@@ -26,7 +26,7 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
   }, [userRole]);
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f9f9f9" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#B76E79" }}>
       <header
         style={{
           padding: "1rem",
@@ -61,7 +61,7 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
             left: 0,
             width: "100vw",
             height: "100vh",
-            background: "linear-gradient(135deg, #c08497, #e4a5b5, #f0c7d0)",
+            backgroundColor: "#B76E79",
             zIndex: 1000,
             display: "flex",
             flexDirection: "column",
