@@ -17,6 +17,9 @@ type Props = {
   accountTier?: string;
   scavengerRetries?: number;
   startDate: string;
+  // New camera props
+  onTakePhoto?: (promptId: string) => Promise<void>;
+  onStartWebCamera?: (promptId: string) => Promise<void>;
 };
 
 export const ScavengerHuntGrid: React.FC<Props> = ({
@@ -29,7 +32,9 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
   onUpload,
   accountTier,
   scavengerRetries,
-  startDate
+  startDate,
+  onTakePhoto,
+  onStartWebCamera
 }) => {
   const [openFeedback, setOpenFeedback] = useState<string | null>(null);
 
@@ -54,6 +59,21 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
     return results[p.promptId]?.score ? sum + results[p.promptId].score : sum;
   }, 0);
 
+  const handleFileChange = (promptId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSizeMB = accountTier === "premium" ? 50 : 2;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+    if (file.size > maxSizeBytes) {
+      alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
+      return;
+    }
+
+    onUpload(promptId, file);
+  };
+
   return (
     <div style={{ width: "100%", overflowX: "hidden" }}>
       {isOwner && accountTier === "premium" && (
@@ -74,7 +94,7 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", // Slightly wider for camera buttons
           gap: 12,
         }}
       >
@@ -112,43 +132,97 @@ export const ScavengerHuntGrid: React.FC<Props> = ({
                 <p>⏳ Processing...</p>
               ) : (
                 <>
-                {url && (
-                  <img
-                    src={`${url}?t=${Date.now()}`}
-                    alt={prompt.promptId}
-                    onClick={() => setSelectedPhotoUrl(`${url}?t=${Date.now()}`)}
-                    style={{
-                      width: "100%",
-                      maxWidth: "100%",
-                      height: "auto",
-                      borderRadius: 6,
-                      display: "block",
-                      cursor: "zoom-in",
-                    }}
-                  />
-                )}
-
-                  {/* UPLOAD INPUT below image if retries allowed */}
-                  {canUpload && (
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-
-                        const maxSizeMB = accountTier === "premium" ? 50 : 2;
-                        const maxSizeBytes = maxSizeMB * 1024 * 1024;
-
-                        if (file.size > maxSizeBytes) {
-                          alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
-                          return;
-                        }
-
-                        onUpload(prompt.promptId, file);
+                  {url && (
+                    <img
+                      src={`${url}?t=${Date.now()}`}
+                      alt={prompt.promptId}
+                      onClick={() => setSelectedPhotoUrl(`${url}?t=${Date.now()}`)}
+                      style={{
+                        width: "100%",
+                        maxWidth: "100%",
+                        height: "auto",
+                        borderRadius: 6,
+                        display: "block",
+                        cursor: "zoom-in",
+                        marginBottom: 8
                       }}
-                      style={{ marginTop: 8 }}
                     />
+                  )}
+
+                  {/* UPLOAD OPTIONS - file input and camera buttons */}
+                  {canUpload && (
+                    <div style={{ marginTop: 8, marginBottom: 8 }}>
+                      {/* File input (hidden, styled as button) */}
+                      <label
+                        htmlFor={`file-input-${prompt.promptId}`}
+                        style={{
+                          display: "inline-block",
+                          padding: "4px 8px",
+                          backgroundColor: "#e5e7eb",
+                          borderRadius: "6px",
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          marginBottom: "4px",
+                          width: "100%",
+                          boxSizing: "border-box"
+                        }}
+                      >
+                        📁 Choose File
+                      </label>
+                      <input
+                        id={`file-input-${prompt.promptId}`}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(prompt.promptId, e)}
+                        style={{ display: "none" }}
+                      />
+
+                      {/* Camera buttons */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+                        {onTakePhoto && (
+                          <button
+                            onClick={() => onTakePhoto(prompt.promptId)}
+                            disabled={isLoading}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#3b82f6",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              fontSize: "0.75rem",
+                              fontWeight: 500,
+                              cursor: isLoading ? "not-allowed" : "pointer",
+                              opacity: isLoading ? 0.5 : 1,
+                              width: "100%"
+                            }}
+                          >
+                            📷 Take Photo
+                          </button>
+                        )}
+                        
+                        {onStartWebCamera && (
+                          <button
+                            onClick={() => onStartWebCamera(prompt.promptId)}
+                            disabled={isLoading}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#10b981",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              fontSize: "0.75rem",
+                              fontWeight: 500,
+                              cursor: isLoading ? "not-allowed" : "pointer",
+                              opacity: isLoading ? 0.5 : 1,
+                              width: "100%"
+                            }}
+                          >
+                            🌐 Web Camera
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   {/* LOCKED State for others */}

@@ -1,14 +1,8 @@
-import { Amplify } from "aws-amplify";
-import amplifyConfig from "@/amplify_outputs.json";
-Amplify.configure({
-  ...amplifyConfig,
-  Storage: {
-    S3: {
-      bucket: "picture-this-storage",
-      region: "us-east-1",
-    }
-  }
-});
+import '@/lib/configureAmplify'; // This runs the Amplify.configure() automatically
+import { Amplify } from 'aws-amplify';
+
+console.log('🔥 AFTER CONFIG:', typeof Amplify !== 'undefined' ? Amplify.getConfig() : 'Amplify not loaded');
+
 import "@/styles/app.css";
 import type { AppProps } from "next/app";
 import { Authenticator } from "@aws-amplify/ui-react";
@@ -20,6 +14,8 @@ import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import "@aws-amplify/ui-react/styles.css";
 import { motion } from "framer-motion";
 import Image from "next/image";
+
+
 
 const CREATE_USER_URL =
   "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/create_user_with_email";
@@ -40,49 +36,32 @@ function AuthenticatedApp({
   const [loading, setLoading] = useState(true);
   const showWelcome = true;
 
-  useEffect(() => {
-    // Safety timeout - don't let the app hang forever
-    const timeout = setTimeout(() => {
-      //console.log('⏰ Timeout reached, forcing app to load');
-      if (loading) {
-        setUserRole("user");
-        setLoading(false);
-      }
-    }, 10000); // 10 second timeout
 
-    return () => clearTimeout(timeout);
-  }, [loading]);
+    console.log('🔧 Amplify Configuration:', Amplify.getConfig());
 
   useEffect(() => {
+    console.log('🔧 DEPLOYED in _app Amplify Config:', Amplify.getConfig());
+    console.log('🔧 DEPLOYED in _app Auth Config:', Amplify.getConfig().Auth);
     const ensureProfileExists = async () => {
-      //console.log('🚀 Starting ensureProfileExists for user:', user?.username);
-      
       try {
-        // Set a reasonable timeout for the whole operation
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile check timeout')), 15000)
-        );
+        let profile;
+        try {
+          profile = await invokeLambdaIam({
+            url: GET_PROFILE_URL,
+            method: "POST",
+            body: { username: user?.username },
+          });
 
-        const profileCheckPromise = (async () => {
-          let profile;
-          try {
-            //console.log('📡 Attempting to get profile...');
-            profile = await invokeLambdaIam({
-              url: GET_PROFILE_URL,
-              method: "POST",
-              body: { username: user?.username },
-            });
-            
-            if (profile?.username) {
-              //console.log('✅ Profile exists, setting role:', profile.role);
-              setUserRole(profile.role);
-              return;
-            }
-          } catch (err) {
-            //console.warn("⚠️ Profile fetch failed, creating new profile:", err);
+          if (profile?.username) {
+            setUserRole(profile.role);
+            return;
           }
+        } catch (err) {
+          console.warn("No profile found, creating one.");
+        }
 
-          // Create profile
+        // Profile missing — create default one
+        try {
           await invokeLambdaIam({
             url: CREATE_USER_URL,
             method: "POST",
@@ -94,16 +73,12 @@ function AuthenticatedApp({
             },
           });
           setUserRole("user");
-        })();
-
-        await Promise.race([profileCheckPromise, timeoutPromise]);
-        
+        } catch (creationErr) {
+          console.error("❌ Failed to create new user profile:", creationErr);
+        }
       } catch (err) {
-        console.error("❌ Profile operations failed, using fallback:", err);
-        // FALLBACK: Just set default role and continue
-        setUserRole("user");
+        console.error("Failed to create or check user profile:", err);
       } finally {
-        //console.log('🏁 Setting loading to false');
         setLoading(false);
       }
     };
@@ -152,30 +127,26 @@ export default function App({ Component, pageProps, router }: AppProps) {
     <Authenticator
       components={{
         Header: () => (
-          <div style={{ 
-            textAlign: "center", 
-            padding: "1rem 1rem 0.5rem", // Reduced padding
-            marginBottom: "1rem" 
-          }}>
+          <div style={{ textAlign: "center", padding: "2rem 1rem 1rem" }}>
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1 }}
               style={{
-                maxWidth: 200, // Reduced from 300px
+                maxWidth: 300,
                 margin: "0 auto",
               }}
             >
               <Image
                 src="/photo_mentor_home.png"
                 alt="Photo Mentor Logo"
-                width={200} // Reduced from 300
-                height={200} // Reduced from 300
+                width={300}
+                height={300}
                 style={{
                   width: "100%",
                   height: "auto",
-                  borderRadius: "1rem", // Slightly smaller radius
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)", // Reduced shadow
+                  borderRadius: "1.5rem",
+                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
                 }}
               />
             </motion.div>
@@ -185,8 +156,8 @@ export default function App({ Component, pageProps, router }: AppProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               style={{
-                marginTop: "1rem", // Reduced from 1.5rem
-                fontSize: "1.3rem", // Slightly smaller
+                marginTop: "1.5rem",
+                fontSize: "1.5rem",
                 color: "#b76e79",
                 fontWeight: "bold",
               }}
@@ -199,13 +170,12 @@ export default function App({ Component, pageProps, router }: AppProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
               style={{
-                fontSize: "0.9rem", // Slightly smaller
+                fontSize: "1rem",
                 color: "#555",
-                marginTop: "0.5rem", // Reduced from 0.75rem
-                maxWidth: 320, // Reduced from 380
+                marginTop: "0.75rem",
+                maxWidth: 380,
                 marginLeft: "auto",
                 marginRight: "auto",
-                marginBottom: "0.5rem" // Add bottom margin
               }}
             >
               Sign up or sign in to join challenges, get feedback, and grow your photography skills.

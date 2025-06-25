@@ -1,10 +1,10 @@
 import "@/lib/configureAmplify";
-import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
+import React, { useState, ChangeEvent, FormEvent, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 import Link from "next/link";
 import { uploadData } from 'aws-amplify/storage';
-
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 const REVIEW_PHOTO_LAMBDA_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/review_photo";
 const GET_PROFILE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
@@ -28,6 +28,11 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [accountTier, setAccountTier] = useState<string>("free");
   const [usage, setUsage] = useState<{ used: number; remaining: number; limit: number } | null>(null);
+  
+  // Camera states - simplified for Capacitor
+  const [showCamera, setShowCamera] = useState<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const fetchProfileAndUsage = async () => {
@@ -60,6 +65,94 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
       fetchProfileAndUsage();
     }
   }, [user.username]);
+
+  // Take photo with Capacitor Camera plugin
+  const takePhoto = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (image.dataUrl) {
+        // Convert data URL to File
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        
+        setImage(file);
+        setFeedback(null); // Clear previous feedback
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      alert('Could not take photo. Please try again.');
+    }
+  };
+
+  // Fallback web camera for desktop/browsers
+  const startWebCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment' // Use back camera on mobile
+        }
+      });
+      setShowCamera(true);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Could not access camera. Please check permissions.");
+    }
+  };
+
+  // Stop web camera
+  const stopWebCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+  };
+
+  // Capture photo from web camera
+  const captureWebPhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return;
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw the video frame to canvas
+    ctx.drawImage(video, 0, 0);
+
+    // Convert canvas to blob then to File
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        setImage(file);
+        stopWebCamera();
+        setFeedback(null); // Clear previous feedback
+      }
+    }, 'image/jpeg', 0.9);
+  };
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
@@ -204,6 +297,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setImage(null);
     setFeedback(null);
     setLoading(false);
+    stopWebCamera(); // Stop camera if running
     // Reset the file input
     const fileInput = document.getElementById('fileInput') as HTMLInputElement;
     if (fileInput) {
@@ -292,10 +386,92 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
-          <label htmlFor="fileInput" style={{ display: "inline-block", padding: "0.75rem 1.5rem", backgroundColor: "#e5e7eb", borderRadius: "9999px", fontWeight: 500, cursor: "pointer" }}>
-            📷 Choose a Photo
-          </label>
+          
+          {/* Photo upload options */}
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <label htmlFor="fileInput" style={{ display: "inline-block", padding: "0.75rem 1.5rem", backgroundColor: "#e5e7eb", borderRadius: "9999px", fontWeight: 500, cursor: "pointer" }}>
+              📁 Choose Photo
+            </label>
+            <button 
+              type="button" 
+              onClick={takePhoto}
+              style={{ 
+                padding: "0.75rem 1.5rem", 
+                backgroundColor: "#3b82f6", 
+                color: "white",
+                border: "none", 
+                borderRadius: "9999px", 
+                fontWeight: 500, 
+                cursor: "pointer" 
+              }}
+            >
+              📷 Take Photo
+            </button>
+            <button 
+              type="button" 
+              onClick={startWebCamera}
+              style={{ 
+                padding: "0.75rem 1.5rem", 
+                backgroundColor: "#10b981", 
+                color: "white",
+                border: "none", 
+                borderRadius: "9999px", 
+                fontWeight: 500, 
+                cursor: "pointer",
+                fontSize: "0.9rem"
+              }}
+            >
+              🌐 Web Camera
+            </button>
+          </div>
+
           <input id="fileInput" type="file" accept="image/*" onChange={handleChange} style={{ display: "none" }} />
+
+          {/* Camera interface */}
+          {showCamera && (
+            <div style={{ width: "100%", maxWidth: "400px", backgroundColor: "#000", borderRadius: "12px", overflow: "hidden", position: "relative" }}>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                style={{ width: "100%", height: "300px", objectFit: "cover" }}
+              />
+              <div style={{ position: "absolute", bottom: "1rem", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "1rem" }}>
+                <button 
+                  type="button" 
+                  onClick={captureWebPhoto}
+                  style={{ 
+                    width: "60px", 
+                    height: "60px", 
+                    borderRadius: "50%", 
+                    backgroundColor: "white", 
+                    border: "4px solid #ccc", 
+                    cursor: "pointer",
+                    fontSize: "1.2rem"
+                  }}
+                >
+                  📸
+                </button>
+                <button 
+                  type="button" 
+                  onClick={stopWebCamera}
+                  style={{ 
+                    padding: "0.5rem 1rem", 
+                    backgroundColor: "#ef4444", 
+                    color: "white", 
+                    border: "none", 
+                    borderRadius: "8px", 
+                    cursor: "pointer" 
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Hidden canvas for photo capture */}
+          <canvas ref={canvasRef} style={{ display: "none" }} />
 
           <button type="submit" disabled={loading || !image} style={{ 
             padding: "0.75rem 1.5rem", 
@@ -389,7 +565,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
                 <ul style={{ paddingLeft: 20 }}>
                   {feedback.tips.map((tip, idx) => <li key={idx}>{tip}</li>)}
                 </ul>
-              </div>
+\            </div>
             )}
           </div>
         )}
