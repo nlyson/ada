@@ -545,10 +545,17 @@ const UserPage: React.FC<AppProps> = ({ user }) => {
   }, [username]);
 
   useEffect(() => {
-    if (!selectedHuntId || !username) return;
-    fetchHuntProgress(selectedHuntId);
-    fetchAllScavengerResults(selectedHuntId);
-  }, [selectedHuntId, username]);
+      if (!selectedHuntId || !username) return;
+      
+      // 🔥 CLEAR OLD RESULTS when switching hunts
+      console.log(`🧹 Clearing old scavenger results for hunt switch to: ${selectedHuntId}`);
+      setScavengerResults({});
+      setScavengerProgress({});
+      
+      // Then fetch new data
+      fetchHuntProgress(selectedHuntId);
+      fetchAllScavengerResults(selectedHuntId);
+    }, [selectedHuntId, username]);
 
   async function handleUpload(file: File, caption: string) {
     if (!file) return;
