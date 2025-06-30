@@ -354,7 +354,7 @@ const FeaturedPhotos: React.FC = () => {
                 lineHeight: '1.5',
                 fontStyle: 'italic'
               }}>
-                "{currentPhoto.caption}"
+                &quot;{currentPhoto.caption}&quot;
               </div>
             )}
 
