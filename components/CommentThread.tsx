@@ -11,7 +11,6 @@ const REACT_TO_COMMENT = "https://x69ndosila.execute-api.us-east-1.amazonaws.com
 
 const ENABLE_COMMENT_REACTIONS = false;
 
-
 type Comment = {
   commentId: string;
   username: string;
@@ -26,8 +25,6 @@ type Props = {
   accountTier?: string;
 };
 
-
-
 export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTier }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState("");
@@ -36,8 +33,22 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
 
   useEffect(() => {
     const markReadIfOwner = async () => {
-      const photoOwner = photoId.split("/")[1]; // Assumes format: user-creations/username/photo.jpg
+      // Fix: Extract username from photoId correctly
+      // Format: public/user-creations/username/filename.jpg
+      const pathParts = photoId.split("/");
+      const photoOwner = pathParts[2]; // Get the username (3rd part)
+      
+      console.log("🔍 CommentThread Debug:", {
+        photoId,
+        photoOwner,
+        currentUser,
+        isOwner: photoOwner === currentUser,
+        hasMarked: hasMarkedRef.current
+      });
+
       if (photoOwner === currentUser && !hasMarkedRef.current) {
+        console.log("📝 Marking comments as read for photo:", photoId);
+        
         try {
           const res = await invokeLambdaIam({
             url: MARK_COMMENT_AS_READ,
@@ -47,8 +58,21 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
               photoId
             }
           });
+          
+          console.log("✅ Mark as read response:", res);
           hasMarkedRef.current = true;
-          refreshUnread(); // 👈 This will update the red badge
+          
+          // Refresh unread count after marking as read
+          setTimeout(async () => {
+            console.log("🔄 Calling refreshUnread after marking as read");
+            try {
+              await refreshUnread();
+              console.log("✅ RefreshUnread completed successfully");
+            } catch (refreshErr) {
+              console.error("❌ RefreshUnread failed:", refreshErr);
+            }
+          }, 500);
+          
         } catch (err) {
           console.error("❌ Failed to mark comments as read", err);
         }
@@ -57,7 +81,7 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
 
     markReadIfOwner();
     fetchComments();
-  }, [photoId, currentUser]);
+  }, [photoId, currentUser, refreshUnread]);
 
   const handleReact = async (commentId: string, emoji: string) => {
     try {
@@ -103,14 +127,28 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
           text
         }
       });
+      
       const res2 = await invokeLambdaIam({
         url: MARK_COMMENT_AS_UNREAD,
         method: "POST",
         body: { photoId }
       });
 
+      console.log("💬 Comment posted, triggering unread refresh");
       setText("");
       await fetchComments();
+      
+      // Refresh unread count after posting comment
+      setTimeout(async () => {
+        console.log("🔄 Refreshing unread after comment post");
+        try {
+          await refreshUnread();
+          console.log("✅ RefreshUnread after post completed");
+        } catch (refreshErr) {
+          console.error("❌ RefreshUnread after post failed:", refreshErr);
+        }
+      }, 500);
+      
     } catch (err) {
       console.error("Failed to add comments:", err);
     }
@@ -128,10 +166,19 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
         }
       });
       await fetchComments();
+      
+      // Refresh unread count after deleting comment
+      setTimeout(async () => {
+        try {
+          await refreshUnread();
+        } catch (refreshErr) {
+          console.error("❌ RefreshUnread after delete failed:", refreshErr);
+        }
+      }, 500);
+      
     } catch (err) {
       console.error("Failed to delete comments:", err);
     }
-
   };
 
   return (
@@ -173,7 +220,7 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
                 justifyContent: "flex-start",
                 alignItems: "center",
                 marginTop: 4,
-                gap: 12, // spacing between buttons
+                gap: 12,
               }}
             >
               {ENABLE_COMMENT_REACTIONS && ["👍", "❤️", "🔥"].map((emoji) => (
@@ -181,13 +228,13 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
                   key={emoji}
                   onClick={() => handleReact(c.commentId, emoji)}
                   style={{
-                    all: "unset",             // 👈 completely removes default button behavior
+                    all: "unset",
                     cursor: "pointer",
                     fontSize: "1.2rem",
                     padding: "2px 6px",
                     borderRadius: 6,
                     backgroundColor: "#f1f1f1",
-                    display: "inline-flex",  // 👈 forces inline layout inside flex
+                    display: "inline-flex",
                     alignItems: "center",
                     gap: 4,
                   }}
@@ -199,8 +246,8 @@ export const CommentThread: React.FC<Props> = ({ photoId, currentUser, accountTi
             </div>
           </div>
         ))}
-
       </div>
+      
       {currentUser && accountTier === "premium" ? (
         <div style={{ marginTop: 4 }}>
           <textarea
