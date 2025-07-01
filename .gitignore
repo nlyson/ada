@@ -42,3 +42,6 @@ amplifyconfiguration*
 
 # Android directory
 /android/
+
+# iOS directory
+/ios/
