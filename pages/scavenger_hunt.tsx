@@ -459,13 +459,59 @@ export default function ScavengerHuntPage() {
     }
     };
 
-  // Photo selection component for each prompt
-  const PhotoSelector = ({ promptId }: { promptId: string }) => {
+  // Photo selection component for each prompt with daily locks
+  const PhotoSelector = ({ promptId, dayNumber }: { promptId: string; dayNumber: number }) => {
     const selectedImage = selectedImages[promptId];
     const showCamera = showCameraMap[promptId];
     const isLoading = loadingMap[promptId];
     const hasProgress = progress[promptId];
 
+    // Calculate if this day is unlocked
+    const huntStartDate = new Date(availableHunts.find(h => h.huntId === selectedHuntId)?.startDate || new Date());
+    const today = new Date();
+    const millisPerDay = 1000 * 60 * 60 * 24;
+    const unlockedCount = Math.max(
+      0,
+      Math.floor((today.getTime() - huntStartDate.getTime()) / millisPerDay) + 1
+    );
+    const isUnlocked = dayNumber <= unlockedCount;
+
+    // Check if user can upload (same logic as ScavengerHuntGrid)
+    const maxRetries = 10;
+    const retriesUsed = scavengerRetries ?? 0;
+    const retryLimitReached = accountTier === "premium" && retriesUsed >= maxRetries;
+    
+    const canUpload = isUnlocked && (
+      (accountTier !== "premium" && !hasProgress) ||
+      (accountTier === "premium" && !retryLimitReached)
+    );
+
+    // If day is locked, show locked state
+    if (!isUnlocked) {
+      return (
+        <div style={{ 
+          marginTop: "1rem", 
+          textAlign: "center", 
+          padding: "2rem",
+          backgroundColor: "#f3f4f6",
+          borderRadius: "8px",
+          color: "#6b7280"
+        }}>
+          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🔒</div>
+          <div style={{ fontSize: "1rem", fontWeight: "500" }}>
+            Day {dayNumber} Locked
+          </div>
+          <div style={{ fontSize: "0.9rem", marginTop: "0.5rem" }}>
+            Unlocks on {new Date(huntStartDate.getTime() + (dayNumber - 1) * millisPerDay).toLocaleDateString()}
+          </div>
+          <div style={{ fontSize: "0.8rem", marginTop: "0.5rem", fontStyle: "italic" }}>
+            {unlockedCount} of {availableHunts.find(h => h.huntId === selectedHuntId)?.prompts.length || 0} days currently unlocked
+          </div>
+        </div>
+      );
+    }
+
+    // If already submitted and not loading
     if (hasProgress && !selectedImage) {
       return (
         <div style={{ marginTop: "1rem", textAlign: "center" }}>
@@ -483,12 +529,109 @@ export default function ScavengerHuntPage() {
           <div style={{ fontSize: "0.9rem", color: "#22c55e", fontWeight: "500" }}>
             ✅ Photo submitted
           </div>
+          
+          {/* Show retry options for premium users */}
+          {accountTier === "premium" && !retryLimitReached && (
+            <div style={{ marginTop: "1rem" }}>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "0.5rem" }}>
+                🔁 Retries used: {retriesUsed} / {maxRetries}
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
+                <label 
+                  htmlFor={`fileInput-${promptId}`} 
+                  style={{ 
+                    display: "inline-block", 
+                    padding: "0.5rem 1rem", 
+                    backgroundColor: "#e5e7eb", 
+                    borderRadius: "8px", 
+                    fontSize: "0.9rem",
+                    fontWeight: 500, 
+                    cursor: "pointer" 
+                  }}
+                >
+                  📁 Retry with File
+                </label>
+                <button 
+                  type="button" 
+                  onClick={() => takePhoto(promptId)}
+                  style={{ 
+                    padding: "0.5rem 1rem", 
+                    backgroundColor: "#3b82f6", 
+                    color: "white",
+                    border: "none", 
+                    borderRadius: "8px", 
+                    fontSize: "0.9rem",
+                    fontWeight: 500, 
+                    cursor: "pointer" 
+                  }}
+                >
+                  📷 Retry with Camera
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Show limit message for free users */}
+          {accountTier !== "premium" && (
+            <div style={{ 
+              fontSize: "0.8rem", 
+              color: "#ef4444", 
+              marginTop: "0.5rem",
+              fontStyle: "italic" 
+            }}>
+              Free users cannot retry submissions
+            </div>
+          )}
+          
+          {/* Show limit reached message */}
+          {accountTier === "premium" && retryLimitReached && (
+            <div style={{ 
+              fontSize: "0.8rem", 
+              color: "#ef4444", 
+              marginTop: "0.5rem",
+              fontStyle: "italic" 
+            }}>
+              Retry limit reached (10/10)
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // If can't upload (shouldn't happen with unlock logic, but safety check)
+    if (!canUpload) {
+      return (
+        <div style={{ 
+          marginTop: "1rem", 
+          textAlign: "center", 
+          padding: "1rem",
+          backgroundColor: "#fef2f2",
+          borderRadius: "8px",
+          color: "#dc2626"
+        }}>
+          <div>❌ Upload not available</div>
+          {retryLimitReached && (
+            <div style={{ fontSize: "0.8rem", marginTop: "0.5rem" }}>
+              Retry limit reached
+            </div>
+          )}
         </div>
       );
     }
 
     return (
       <div style={{ marginTop: "1rem" }}>
+        {/* Show unlock status */}
+        <div style={{ 
+          fontSize: "0.8rem", 
+          color: "#22c55e", 
+          marginBottom: "1rem",
+          textAlign: "center",
+          fontWeight: "500"
+        }}>
+          🔓 Day {dayNumber} Unlocked
+        </div>
+
         {/* Photo upload options */}
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center", marginBottom: "1rem" }}>
           <label 
@@ -539,13 +682,35 @@ export default function ScavengerHuntPage() {
           </button>
         </div>
 
+        {/* Upload guidance */}
+        <div style={{ 
+          fontSize: "0.8rem", 
+          color: "#6b7280", 
+          textAlign: "center",
+          marginBottom: "1rem"
+        }}>
+          Max size: {accountTier === "premium" ? "50MB" : "2MB"}
+          {accountTier === "premium" && (
+            <div>🔁 Retries: {retriesUsed} / {maxRetries}</div>
+          )}
+        </div>
+
         <input 
           id={`fileInput-${promptId}`} 
           type="file" 
           accept="image/*" 
           onChange={(e) => {
             if (e.target.files && e.target.files.length > 0) {
-              handleFileSelect(promptId, e.target.files[0]);
+              const file = e.target.files[0];
+              const maxSizeMB = accountTier === "premium" ? 50 : 2;
+              const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+              if (file.size > maxSizeBytes) {
+                alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
+                return;
+              }
+              
+              handleFileSelect(promptId, file);
             }
           }}
           style={{ display: "none" }} 
@@ -693,39 +858,43 @@ export default function ScavengerHuntPage() {
           </p>
         )}
 
-        {selectedHunt.prompts.map((prompt) => (
-          <div 
-            key={prompt.promptId} 
-            style={{ 
-              backgroundColor: "white", 
-              borderRadius: "12px", 
-              padding: "1.5rem", 
-              marginBottom: "1.5rem",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              border: "1px solid #e5e7eb"
-            }}
-          >
-            <h3 style={{ marginTop: 0, marginBottom: "1rem", color: "#1f2937" }}>
-              {prompt.text}
-            </h3>
-            
-            <PhotoSelector promptId={prompt.promptId} />
+        {selectedHunt.prompts.map((prompt, index) => {
+          const dayNumber = index + 1;
+          
+          return (
+            <div 
+              key={prompt.promptId} 
+              style={{ 
+                backgroundColor: "white", 
+                borderRadius: "12px", 
+                padding: "1.5rem", 
+                marginBottom: "1.5rem",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                border: "1px solid #e5e7eb"
+              }}
+            >
+              <h3 style={{ marginTop: 0, marginBottom: "0.5rem", color: "#1f2937" }}>
+                Day {dayNumber}: {prompt.text}
+              </h3>
+              
+              <PhotoSelector promptId={prompt.promptId} dayNumber={dayNumber} />
 
-            {/* Results display */}
-            {results[prompt.promptId] && (
-              <div style={{ 
-                marginTop: "1rem", 
-                padding: "1rem", 
-                backgroundColor: "#f3f4f6", 
-                borderRadius: "8px" 
-              }}>
-                <h4 style={{ marginTop: 0, fontSize: "1rem" }}>📊 Results</h4>
-                <p><strong>Score:</strong> {results[prompt.promptId].score}/100</p>
-                <p><strong>Feedback:</strong> {results[prompt.promptId].feedback}</p>
-              </div>
-            )}
-          </div>
-        ))}
+              {/* Results display */}
+              {results[prompt.promptId] && (
+                <div style={{ 
+                  marginTop: "1rem", 
+                  padding: "1rem", 
+                  backgroundColor: "#f3f4f6", 
+                  borderRadius: "8px" 
+                }}>
+                  <h4 style={{ marginTop: 0, fontSize: "1rem" }}>📊 Results</h4>
+                  <p><strong>Score:</strong> {results[prompt.promptId].score}/100</p>
+                  <p><strong>Feedback:</strong> {results[prompt.promptId].feedback}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Hidden canvas for photo capture */}
