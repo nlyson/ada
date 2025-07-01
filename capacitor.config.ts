@@ -14,11 +14,17 @@ const config: CapacitorConfig = {
       enabled: true
     }
   },
-  // Add this for Android-specific handling
+  // Android-specific configuration
   android: {
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: true
+  },
+  // Add iOS-specific configuration
+  ios: {
+    scheme: 'Photo Mentor',
+    webContentsDebuggingEnabled: true,
+    allowsLinkPreview: false
   }
 };
 
