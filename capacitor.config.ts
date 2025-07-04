@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.jamapantel.photomentor',
-  appName: 'PhotoMentor',
+  appName: 'App',
   webDir: 'out',
   server: {
     androidScheme: 'https',
