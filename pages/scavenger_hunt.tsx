@@ -42,6 +42,9 @@ export default function ScavengerHuntPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [currentPromptId, setCurrentPromptId] = useState<string>("");
 
+  // Add state to track retry mode for each prompt
+  const [retryModeMap, setRetryModeMap] = useState<{ [promptId: string]: boolean }>({});
+
   const router = useRouter();
 
   useEffect(() => {
@@ -217,6 +220,22 @@ export default function ScavengerHuntPage() {
   // Handle file selection
   const handleFileSelect = (promptId: string, file: File) => {
     setSelectedImages(prev => ({ ...prev, [promptId]: file }));
+  };
+
+  // Enable retry mode for a specific prompt
+  const enableRetryMode = (promptId: string) => {
+    setRetryModeMap(prev => ({ ...prev, [promptId]: true }));
+  };
+
+  // Cancel retry mode for a specific prompt
+  const cancelRetryMode = (promptId: string) => {
+    setRetryModeMap(prev => ({ ...prev, [promptId]: false }));
+    // Also clear any selected image for this prompt
+    setSelectedImages(prev => {
+      const newState = { ...prev };
+      delete newState[promptId];
+      return newState;
+    });
   };
 
   // Aggressive compression for large images
@@ -445,15 +464,19 @@ export default function ScavengerHuntPage() {
         }
         setResults(updatedResults);
 
-        // Clear the selected image after successful upload
+        // Clear the selected image and exit retry mode after successful upload
         setSelectedImages(prev => {
           const newState = { ...prev };
           delete newState[promptId];
           return newState;
         });
 
+        // Exit retry mode after successful upload
+        setRetryModeMap(prev => ({ ...prev, [promptId]: false }));
+
     } catch (err) {
         console.error("Upload failed:", err);
+        alert("Upload failed. Please try again.");
     } finally {
         setLoadingMap(prev => ({ ...prev, [promptId]: false }));
     }
@@ -465,6 +488,7 @@ export default function ScavengerHuntPage() {
     const showCamera = showCameraMap[promptId];
     const isLoading = loadingMap[promptId];
     const hasProgress = progress[promptId];
+    const isInRetryMode = retryModeMap[promptId];
 
     // Calculate if this day is unlocked
     const huntStartDate = new Date(availableHunts.find(h => h.huntId === selectedHuntId)?.startDate || new Date());
@@ -476,15 +500,14 @@ export default function ScavengerHuntPage() {
     );
     const isUnlocked = dayNumber <= unlockedCount;
 
-    // Check if user can upload (same logic as ScavengerHuntGrid)
+    // Check retry limits
     const maxRetries = 10;
     const retriesUsed = scavengerRetries ?? 0;
     const retryLimitReached = accountTier === "premium" && retriesUsed >= maxRetries;
     
-    const canUpload = isUnlocked && (
-      (accountTier !== "premium" && !hasProgress) ||
-      (accountTier === "premium" && !retryLimitReached)
-    );
+    // Determine if user can upload/retry
+    const canInitialUpload = isUnlocked && !hasProgress;
+    const canRetry = isUnlocked && hasProgress && accountTier === "premium" && !retryLimitReached;
 
     // If day is locked, show locked state
     if (!isUnlocked) {
@@ -511,8 +534,8 @@ export default function ScavengerHuntPage() {
       );
     }
 
-    // If already submitted and not loading
-    if (hasProgress && !selectedImage) {
+    // If already submitted and not in retry mode
+    if (hasProgress && !isInRetryMode && !selectedImage) {
       return (
         <div style={{ marginTop: "1rem", textAlign: "center" }}>
           <img 
@@ -531,43 +554,27 @@ export default function ScavengerHuntPage() {
           </div>
           
           {/* Show retry options for premium users */}
-          {accountTier === "premium" && !retryLimitReached && (
+          {canRetry && (
             <div style={{ marginTop: "1rem" }}>
               <div style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "0.5rem" }}>
-                🔁 Retries used: {retriesUsed} / {maxRetries}
+                🔁 Retries available: {maxRetries - retriesUsed} remaining
               </div>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
-                <label 
-                  htmlFor={`fileInput-${promptId}`} 
-                  style={{ 
-                    display: "inline-block", 
-                    padding: "0.5rem 1rem", 
-                    backgroundColor: "#e5e7eb", 
-                    borderRadius: "8px", 
-                    fontSize: "0.9rem",
-                    fontWeight: 500, 
-                    cursor: "pointer" 
-                  }}
-                >
-                  📁 Retry with File
-                </label>
-                <button 
-                  type="button" 
-                  onClick={() => takePhoto(promptId)}
-                  style={{ 
-                    padding: "0.5rem 1rem", 
-                    backgroundColor: "#3b82f6", 
-                    color: "white",
-                    border: "none", 
-                    borderRadius: "8px", 
-                    fontSize: "0.9rem",
-                    fontWeight: 500, 
-                    cursor: "pointer" 
-                  }}
-                >
-                  📷 Retry with Camera
-                </button>
-              </div>
+              <button 
+                type="button" 
+                onClick={() => enableRetryMode(promptId)}
+                style={{ 
+                  padding: "0.5rem 1rem", 
+                  backgroundColor: "#f59e0b", 
+                  color: "white",
+                  border: "none", 
+                  borderRadius: "8px", 
+                  fontSize: "0.9rem",
+                  fontWeight: 500, 
+                  cursor: "pointer" 
+                }}
+              >
+                🔄 Retry Submission
+              </button>
             </div>
           )}
           
@@ -575,7 +582,7 @@ export default function ScavengerHuntPage() {
           {accountTier !== "premium" && (
             <div style={{ 
               fontSize: "0.8rem", 
-              color: "#ef4444", 
+              color: "#6b7280", 
               marginTop: "0.5rem",
               fontStyle: "italic" 
             }}>
@@ -591,230 +598,250 @@ export default function ScavengerHuntPage() {
               marginTop: "0.5rem",
               fontStyle: "italic" 
             }}>
-              Retry limit reached (10/10)
+              Retry limit reached ({maxRetries}/{maxRetries})
             </div>
           )}
         </div>
       );
     }
 
-    // If can't upload (shouldn't happen with unlock logic, but safety check)
-    if (!canUpload) {
+    // If in retry mode or can upload initially
+    if (canInitialUpload || isInRetryMode) {
       return (
-        <div style={{ 
-          marginTop: "1rem", 
-          textAlign: "center", 
-          padding: "1rem",
-          backgroundColor: "#fef2f2",
-          borderRadius: "8px",
-          color: "#dc2626"
-        }}>
-          <div>❌ Upload not available</div>
-          {retryLimitReached && (
-            <div style={{ fontSize: "0.8rem", marginTop: "0.5rem" }}>
-              Retry limit reached
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ marginTop: "1rem" }}>
-        {/* Show unlock status */}
-        <div style={{ 
-          fontSize: "0.8rem", 
-          color: "#22c55e", 
-          marginBottom: "1rem",
-          textAlign: "center",
-          fontWeight: "500"
-        }}>
-          🔓 Day {dayNumber} Unlocked
-        </div>
-
-        {/* Photo upload options */}
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center", marginBottom: "1rem" }}>
-          <label 
-            htmlFor={`fileInput-${promptId}`} 
-            style={{ 
-              display: "inline-block", 
-              padding: "0.5rem 1rem", 
-              backgroundColor: "#e5e7eb", 
-              borderRadius: "8px", 
-              fontSize: "0.9rem",
-              fontWeight: 500, 
-              cursor: "pointer" 
-            }}
-          >
-            📁 Choose Photo
-          </label>
-          <button 
-            type="button" 
-            onClick={() => takePhoto(promptId)}
-            style={{ 
-              padding: "0.5rem 1rem", 
-              backgroundColor: "#3b82f6", 
-              color: "white",
-              border: "none", 
-              borderRadius: "8px", 
-              fontSize: "0.9rem",
-              fontWeight: 500, 
-              cursor: "pointer" 
-            }}
-          >
-            📷 Take Photo
-          </button>
-          <button 
-            type="button" 
-            onClick={() => startWebCamera(promptId)}
-            style={{ 
-              padding: "0.5rem 1rem", 
-              backgroundColor: "#10b981", 
-              color: "white",
-              border: "none", 
-              borderRadius: "8px", 
-              fontSize: "0.9rem",
-              fontWeight: 500, 
-              cursor: "pointer"
-            }}
-          >
-            🌐 Web Camera
-          </button>
-        </div>
-
-        {/* Upload guidance */}
-        <div style={{ 
-          fontSize: "0.8rem", 
-          color: "#6b7280", 
-          textAlign: "center",
-          marginBottom: "1rem"
-        }}>
-          Max size: {accountTier === "premium" ? "50MB" : "2MB"}
-          {accountTier === "premium" && (
-            <div>🔁 Retries: {retriesUsed} / {maxRetries}</div>
-          )}
-        </div>
-
-        <input 
-          id={`fileInput-${promptId}`} 
-          type="file" 
-          accept="image/*" 
-          onChange={(e) => {
-            if (e.target.files && e.target.files.length > 0) {
-              const file = e.target.files[0];
-              const maxSizeMB = accountTier === "premium" ? 50 : 2;
-              const maxSizeBytes = maxSizeMB * 1024 * 1024;
-
-              if (file.size > maxSizeBytes) {
-                alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
-                return;
-              }
-              
-              handleFileSelect(promptId, file);
-            }
-          }}
-          style={{ display: "none" }} 
-        />
-
-        {/* Camera interface */}
-        {showCamera && currentPromptId === promptId && (
+        <div style={{ marginTop: "1rem" }}>
+          {/* Show unlock status */}
           <div style={{ 
-            width: "100%", 
-            maxWidth: "300px", 
-            backgroundColor: "#000", 
-            borderRadius: "12px", 
-            overflow: "hidden", 
-            position: "relative",
-            margin: "0 auto 1rem auto"
+            fontSize: "0.8rem", 
+            color: isInRetryMode ? "#f59e0b" : "#22c55e", 
+            marginBottom: "1rem",
+            textAlign: "center",
+            fontWeight: "500"
           }}>
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              style={{ width: "100%", height: "200px", objectFit: "cover" }}
-            />
-            <div style={{ 
-              position: "absolute", 
-              bottom: "0.5rem", 
-              left: "50%", 
-              transform: "translateX(-50%)", 
-              display: "flex", 
-              gap: "0.5rem" 
-            }}>
+            {isInRetryMode ? "🔄 Retry Mode Active" : `🔓 Day ${dayNumber} Unlocked`}
+          </div>
+
+          {/* Show retry cancel button */}
+          {isInRetryMode && (
+            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
               <button 
                 type="button" 
-                onClick={captureWebPhoto}
-                style={{ 
-                  width: "40px", 
-                  height: "40px", 
-                  borderRadius: "50%", 
-                  backgroundColor: "white", 
-                  border: "2px solid #ccc", 
-                  cursor: "pointer",
-                  fontSize: "1rem"
-                }}
-              >
-                📸
-              </button>
-              <button 
-                type="button" 
-                onClick={() => stopWebCamera(promptId)}
+                onClick={() => cancelRetryMode(promptId)}
                 style={{ 
                   padding: "0.25rem 0.5rem", 
-                  backgroundColor: "#ef4444", 
-                  color: "white", 
+                  backgroundColor: "#6b7280", 
+                  color: "white",
                   border: "none", 
                   borderRadius: "6px", 
-                  cursor: "pointer",
-                  fontSize: "0.8rem"
+                  fontSize: "0.8rem",
+                  cursor: "pointer" 
                 }}
               >
-                Cancel
+                Cancel Retry
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Selected image preview */}
-        {selectedImage && (
-          <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-            <img 
-              src={URL.createObjectURL(selectedImage)} 
-              alt="preview" 
+          {/* Photo upload options */}
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center", marginBottom: "1rem" }}>
+            <label 
+              htmlFor={`fileInput-${promptId}`} 
               style={{ 
-                width: "100%", 
-                maxHeight: "200px", 
-                objectFit: "contain", 
-                borderRadius: "8px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                filter: isLoading ? "blur(1px) grayscale(0.6)" : "none"
-              }} 
-            />
-          </div>
-        )}
-
-        {/* Upload button */}
-        {selectedImage && (
-          <div style={{ textAlign: "center" }}>
-            <button 
-              onClick={() => handleUpload(promptId)}
-              disabled={isLoading}
-              style={{ 
+                display: "inline-block", 
                 padding: "0.5rem 1rem", 
-                backgroundColor: isLoading ? "#9ca3af" : "#b76e79", 
-                color: "white", 
-                border: "none", 
+                backgroundColor: "#e5e7eb", 
                 borderRadius: "8px", 
-                fontSize: "0.9rem", 
-                fontWeight: "bold", 
-                cursor: isLoading ? "not-allowed" : "pointer",
-                width: "100%"
+                fontSize: "0.9rem",
+                fontWeight: 500, 
+                cursor: "pointer" 
               }}
             >
-              {isLoading ? "Uploading..." : "Submit Photo"}
+              📁 Choose Photo
+            </label>
+            <button 
+              type="button" 
+              onClick={() => takePhoto(promptId)}
+              style={{ 
+                padding: "0.5rem 1rem", 
+                backgroundColor: "#3b82f6", 
+                color: "white",
+                border: "none", 
+                borderRadius: "8px", 
+                fontSize: "0.9rem",
+                fontWeight: 500, 
+                cursor: "pointer" 
+              }}
+            >
+              📷 Take Photo
+            </button>
+            <button 
+              type="button" 
+              onClick={() => startWebCamera(promptId)}
+              style={{ 
+                padding: "0.5rem 1rem", 
+                backgroundColor: "#10b981", 
+                color: "white",
+                border: "none", 
+                borderRadius: "8px", 
+                fontSize: "0.9rem",
+                fontWeight: 500, 
+                cursor: "pointer"
+              }}
+            >
+              🌐 Web Camera
             </button>
           </div>
-        )}
+
+          {/* Upload guidance */}
+          <div style={{ 
+            fontSize: "0.8rem", 
+            color: "#6b7280", 
+            textAlign: "center",
+            marginBottom: "1rem"
+          }}>
+            Max size: {accountTier === "premium" ? "50MB" : "2MB"}
+            {accountTier === "premium" && isInRetryMode && (
+              <div>🔁 This will count as a retry ({maxRetries - retriesUsed} remaining)</div>
+            )}
+          </div>
+
+          <input 
+            id={`fileInput-${promptId}`} 
+            type="file" 
+            accept="image/*" 
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const maxSizeMB = accountTier === "premium" ? 50 : 2;
+                const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+                if (file.size > maxSizeBytes) {
+                  alert(`File too large. Maximum allowed size is ${maxSizeMB} MB.`);
+                  return;
+                }
+                
+                handleFileSelect(promptId, file);
+              }
+            }}
+            style={{ display: "none" }} 
+          />
+
+          {/* Camera interface */}
+          {showCamera && currentPromptId === promptId && (
+            <div style={{ 
+              width: "100%", 
+              maxWidth: "300px", 
+              backgroundColor: "#000", 
+              borderRadius: "12px", 
+              overflow: "hidden", 
+              position: "relative",
+              margin: "0 auto 1rem auto"
+            }}>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                style={{ width: "100%", height: "200px", objectFit: "cover" }}
+              />
+              <div style={{ 
+                position: "absolute", 
+                bottom: "0.5rem", 
+                left: "50%", 
+                transform: "translateX(-50%)", 
+                display: "flex", 
+                gap: "0.5rem" 
+              }}>
+                <button 
+                  type="button" 
+                  onClick={captureWebPhoto}
+                  style={{ 
+                    width: "40px", 
+                    height: "40px", 
+                    borderRadius: "50%", 
+                    backgroundColor: "white", 
+                    border: "2px solid #ccc", 
+                    cursor: "pointer",
+                    fontSize: "1rem"
+                  }}
+                >
+                  📸
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => stopWebCamera(promptId)}
+                  style={{ 
+                    padding: "0.25rem 0.5rem", 
+                    backgroundColor: "#ef4444", 
+                    color: "white", 
+                    border: "none", 
+                    borderRadius: "6px", 
+                    cursor: "pointer",
+                    fontSize: "0.8rem"
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Selected image preview */}
+          {selectedImage && (
+            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+              <img 
+                src={URL.createObjectURL(selectedImage)} 
+                alt="preview" 
+                style={{ 
+                  width: "100%", 
+                  maxHeight: "200px", 
+                  objectFit: "contain", 
+                  borderRadius: "8px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  filter: isLoading ? "blur(1px) grayscale(0.6)" : "none"
+                }} 
+              />
+            </div>
+          )}
+
+          {/* Upload button */}
+          {selectedImage && (
+            <div style={{ textAlign: "center" }}>
+              <button 
+                onClick={() => handleUpload(promptId)}
+                disabled={isLoading}
+                style={{ 
+                  padding: "0.5rem 1rem", 
+                  backgroundColor: isLoading ? "#9ca3af" : "#b76e79", 
+                  color: "white", 
+                  border: "none", 
+                  borderRadius: "8px", 
+                  fontSize: "0.9rem", 
+                  fontWeight: "bold", 
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  width: "100%"
+                }}
+              >
+                {isLoading ? "Uploading..." : (isInRetryMode ? "Submit Retry" : "Submit Photo")}
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Fallback case (shouldn't normally reach here)
+    return (
+      <div style={{ 
+        marginTop: "1rem", 
+        textAlign: "center", 
+        padding: "1rem",
+        backgroundColor: "#fef2f2",
+        borderRadius: "8px",
+        color: "#dc2626"
+      }}>
+        <div>❌ Upload not available</div>
+        <div style={{ fontSize: "0.8rem", marginTop: "0.5rem" }}>
+          {retryLimitReached ? "Retry limit reached" : "Please check your account status"}
+        </div>
       </div>
     );
   };
