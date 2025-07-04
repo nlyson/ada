@@ -22,12 +22,114 @@ type FeedbackResult = {
   tips?: string[];
 };
 
+// Mobile camera instruction generator
+const generateMobileCameraInstructions = (feedback: string, score?: number, rubric?: Record<string, number | string>) => {
+  const instructions = {
+    ios: [] as string[],
+    android: [] as string[],
+  };
+
+  const feedbackLower = feedback.toLowerCase();
+  const rubricText = rubric ? Object.entries(rubric).map(([key, val]) => `${key}: ${val}`).join(' ').toLowerCase() : '';
+  const allText = `${feedbackLower} ${rubricText}`;
+
+  // Exposure and brightness issues
+  if (allText.includes('dark') || allText.includes('underexposed') || allText.includes('shadow') || allText.includes('brighten')) {
+    instructions.ios.push("📱 **Exposure:** Tap on the darker area of your subject, then slide the sun icon ☀️ upward to brighten");
+    instructions.android.push("📱 **Exposure:** Tap to focus, then drag the exposure slider (☀️ icon) upward to brighten your shot");
+  }
+
+  if (allText.includes('bright') || allText.includes('overexposed') || allText.includes('blown out') || allText.includes('too light')) {
+    instructions.ios.push("📱 **Exposure:** Tap on the brightest area, then slide the sun icon ☀️ downward to darken");
+    instructions.android.push("📱 **Exposure:** Tap to focus, then drag the exposure slider (☀️ icon) downward to reduce brightness");
+  }
+
+  // Focus and sharpness issues
+  if (allText.includes('blur') || allText.includes('focus') || allText.includes('sharp') || allText.includes('soft')) {
+    instructions.ios.push("🎯 **Focus:** Tap directly on your main subject and wait for the yellow focus square to appear and lock");
+    instructions.android.push("🎯 **Focus:** Tap your subject and wait for the focus circle to turn green before taking the shot");
+  }
+
+  // Composition issues
+  if (allText.includes('rule of thirds') || allText.includes('composition') || allText.includes('center') || allText.includes('framing')) {
+    instructions.ios.push("📐 **Composition:** Go to Settings > Camera > Grid, then align your subject along the grid lines (rule of thirds)");
+    instructions.android.push("📐 **Composition:** Enable grid in camera settings, then place your subject at the intersection of grid lines");
+  }
+
+  if (allText.includes('angle') || allText.includes('perspective') || allText.includes('viewpoint')) {
+    instructions.ios.push("📐 **Angles:** Try shooting from different heights - crouch down or hold your phone higher for more dynamic shots");
+    instructions.android.push("📐 **Angles:** Experiment with camera height - low angles make subjects look powerful, high angles create intimacy");
+  }
+
+  // Lighting issues
+  if (allText.includes('light') || allText.includes('lighting') || allText.includes('golden hour') || allText.includes('harsh')) {
+    instructions.ios.push("💡 **Lighting:** Use the flash button (⚡) - tap it to cycle: Auto/On/Off. For portraits, try 'Auto' or 'Off' with natural light");
+    instructions.android.push("💡 **Lighting:** Tap the flash icon (⚡) to toggle modes. For better lighting, face your subject toward a window or light source");
+  }
+
+  if (allText.includes('shadow') || allText.includes('contrast') || allText.includes('harsh light')) {
+    instructions.ios.push("🌤️ **Soft Light:** Look for open shade (under a tree or building overhang) for even, flattering light");
+    instructions.android.push("🌤️ **Soft Light:** Move to areas with indirect light - near windows or in open shade for more even lighting");
+  }
+
+  // Portrait mode and depth
+  if (allText.includes('background') || allText.includes('depth') || allText.includes('bokeh') || allText.includes('subject separation')) {
+    instructions.ios.push("🎭 **Portrait Mode:** Swipe to 'Portrait' mode for automatic background blur (works best 2-8 feet from subject)");
+    instructions.android.push("🎭 **Portrait Mode:** Look for 'Portrait' or 'Live Focus' mode in your camera app for background blur effects");
+  }
+
+  // Color and white balance
+  if (allText.includes('color') || allText.includes('white balance') || allText.includes('warm') || allText.includes('cool') || allText.includes('tint')) {
+    instructions.ios.push("🎨 **Color:** Use built-in filters (swipe up from camera) or go to Settings > Camera > Preserve Settings > Filter");
+    instructions.android.push("🎨 **Color:** Try different scene modes (Auto, Vivid, Natural) or use filters available in your camera app");
+  }
+
+  // Night and low light
+  if (allText.includes('night') || allText.includes('low light') || allText.includes('dark') || allText.includes('noise')) {
+    instructions.ios.push("🌙 **Night Mode:** On iPhone 11+, Night mode activates automatically in low light - keep steady for 1-3 seconds");
+    instructions.android.push("🌙 **Night Mode:** Look for 'Night' or 'Low Light' mode in your camera settings for better dark photos");
+  }
+
+  // Stability and motion
+  if (allText.includes('shake') || allText.includes('motion') || allText.includes('stability') || allText.includes('steady')) {
+    instructions.ios.push("🤳 **Stability:** Hold your phone with both hands, tuck elbows against your body, and tap the volume button to take photos");
+    instructions.android.push("🤳 **Stability:** Use both hands, brace against a wall/surface, or use the volume button instead of screen tap");
+  }
+
+  // Video-specific advice
+  if (allText.includes('video') || allText.includes('motion') || allText.includes('movement')) {
+    instructions.ios.push("🎬 **Video:** Swipe to 'Video' mode, tap to focus, then use slow, smooth movements - enable 'Lock Camera' in settings");
+    instructions.android.push("🎬 **Video:** Switch to video mode, tap to focus first, then move camera smoothly - avoid quick pans or shakes");
+  }
+
+  // Default helpful tips if no specific issues detected
+  if (instructions.ios.length === 0 && instructions.android.length === 0) {
+    instructions.ios.push("📱 **General:** Tap to focus on your subject, check your lighting, and try different angles");
+    instructions.ios.push("🧹 **Maintenance:** Clean your camera lens with a soft cloth for sharper photos");
+    instructions.android.push("📱 **General:** Tap your subject to focus, ensure good lighting, and experiment with composition");
+    instructions.android.push("🧹 **Maintenance:** Keep your camera lens clean for the best image quality");
+  }
+
+  // Add pro tip based on score
+  if (score && score >= 80) {
+    instructions.ios.push("🏆 **Pro Tip:** Try shooting in RAW format (Settings > Camera > Formats > ProRAW) for advanced editing flexibility");
+    instructions.android.push("🏆 **Pro Tip:** Enable RAW/DNG format in camera settings for maximum editing control");
+  } else if (score && score >= 60) {
+    instructions.ios.push("📈 **Next Level:** Experiment with different camera modes and manual controls in third-party apps");
+    instructions.android.push("📈 **Next Level:** Try manual controls (Pro mode) to fine-tune exposure, ISO, and focus");
+  }
+
+  return instructions;
+};
+
 const App: React.FC<AppProps> = ({ signOut, user }) => {
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [accountTier, setAccountTier] = useState<string>("free");
   const [usage, setUsage] = useState<{ used: number; remaining: number; limit: number } | null>(null);
+  const [showMobileGuide, setShowMobileGuide] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'ios' | 'android'>('ios');
   
   // Camera states - simplified for Capacitor
   const [showCamera, setShowCamera] = useState<boolean>(false);
@@ -297,6 +399,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
     setImage(null);
     setFeedback(null);
     setLoading(false);
+    setShowMobileGuide(false);
     stopWebCamera(); // Stop camera if running
     // Reset the file input
     const fileInput = document.getElementById('fileInput') as HTMLInputElement;
@@ -362,6 +465,7 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
       };
 
       setFeedback(feedbackResult);
+      setShowMobileGuide(true); // Show mobile guide when feedback is received
       window.scrollTo({ top: 0, behavior: "smooth" });
 
     } catch (err) {
@@ -565,7 +669,160 @@ const App: React.FC<AppProps> = ({ signOut, user }) => {
                 <ul style={{ paddingLeft: 20 }}>
                   {feedback.tips.map((tip, idx) => <li key={idx}>{tip}</li>)}
                 </ul>
-\            </div>
+              </div>
+            )}
+
+            {/* Mobile Camera Instructions */}
+            {showMobileGuide && (
+              <div style={{ marginTop: 24, padding: 20, backgroundColor: "#f0f9ff", borderRadius: 12, border: "2px solid #0ea5e9" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                  <h4 style={{ margin: 0, color: "#0369a1", fontSize: "1.1rem" }}>📱 Apply This on Your Phone Camera</h4>
+                  <button 
+                    onClick={() => setShowMobileGuide(false)}
+                    style={{ 
+                      background: "none", 
+                      border: "none", 
+                      fontSize: "1.2rem", 
+                      cursor: "pointer",
+                      color: "#6b7280"
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Tab selector */}
+                <div style={{ display: "flex", gap: "0.5rem", marginBottom: 16 }}>
+                  <button 
+                    onClick={() => setActiveTab('ios')}
+                    style={{ 
+                      padding: "0.5rem 1rem", 
+                      backgroundColor: activeTab === 'ios' ? "#3b82f6" : "#e5e7eb", 
+                      color: activeTab === 'ios' ? "white" : "#374151",
+                      border: "none", 
+                      borderRadius: "8px", 
+                      fontSize: "0.9rem", 
+                      fontWeight: 500, 
+                      cursor: "pointer" 
+                    }}
+                  >
+                    🍎 iPhone
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('android')}
+                    style={{ 
+                      padding: "0.5rem 1rem", 
+                      backgroundColor: activeTab === 'android' ? "#10b981" : "#e5e7eb", 
+                      color: activeTab === 'android' ? "white" : "#374151",
+                      border: "none", 
+                      borderRadius: "8px", 
+                      fontSize: "0.9rem", 
+                      fontWeight: 500, 
+                      cursor: "pointer" 
+                    }}
+                  >
+                    🤖 Android
+                  </button>
+                </div>
+
+                {/* Instructions content */}
+                <div style={{ minHeight: "200px" }}>
+                  {(() => {
+                    const instructions = generateMobileCameraInstructions(feedback.feedback, feedback.score, feedback.rubric);
+                    const currentInstructions = activeTab === 'ios' ? instructions.ios : instructions.android;
+                    
+                    return (
+                      <div>
+                        <div style={{ 
+                          fontSize: "0.9rem", 
+                          color: "#6b7280", 
+                          marginBottom: 12,
+                          fontStyle: "italic"
+                        }}>
+                          {activeTab === 'ios' ? 
+                            "Step-by-step instructions for iPhone Camera app:" : 
+                            "Step-by-step instructions for Android Camera app:"
+                          }
+                        </div>
+                        
+                        {currentInstructions.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            {currentInstructions.map((instruction, idx) => (
+                              <div key={idx} style={{ 
+                                padding: "12px 16px", 
+                                backgroundColor: "white", 
+                                borderRadius: "8px", 
+                                border: "1px solid #e5e7eb",
+                                fontSize: "0.9rem",
+                                lineHeight: 1.5
+                              }}>
+                                <ReactMarkdown
+                                  components={{
+                                    strong: ({ children }) => <strong style={{ color: activeTab === 'ios' ? "#3b82f6" : "#10b981" }}>{children}</strong>,
+                                    p: ({ children }) => <p style={{ margin: 0 }}>{children}</p>,
+                                  }}
+                                >
+                                  {instruction}
+                                </ReactMarkdown>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ 
+                            padding: "16px", 
+                            backgroundColor: "white", 
+                            borderRadius: "8px", 
+                            border: "1px solid #e5e7eb",
+                            textAlign: "center",
+                            color: "#6b7280",
+                            fontStyle: "italic"
+                          }}>
+                            Great job! Your photo technique is solid. Keep experimenting with different subjects and lighting conditions.
+                          </div>
+                        )}
+
+                        {/* Quick reference card */}
+                        <div style={{ 
+                          marginTop: 16, 
+                          padding: "12px 16px", 
+                          backgroundColor: "#fef3c7", 
+                          borderRadius: "8px",
+                          border: "1px solid #f59e0b"
+                        }}>
+                          <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#92400e", marginBottom: 8 }}>
+                            💡 Quick Reference:
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#92400e", lineHeight: 1.4 }}>
+                            {activeTab === 'ios' ? 
+                              "• Tap to focus • Swipe sun ☀️ for exposure • Volume buttons = shutter • Portrait mode for blur" :
+                              "• Tap to focus • Drag exposure slider • Volume buttons = shutter • Pro mode for manual controls"
+                            }
+                          </div>
+                        </div>
+
+                        {/* App recommendations */}
+                        <div style={{ 
+                          marginTop: 16, 
+                          padding: "12px 16px", 
+                          backgroundColor: "#f3f4f6", 
+                          borderRadius: "8px",
+                          border: "1px solid #d1d5db"
+                        }}>
+                          <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#374151", marginBottom: 8 }}>
+                            📱 Pro Camera Apps:
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#6b7280", lineHeight: 1.4 }}>
+                            {activeTab === 'ios' ? 
+                              "VSCO, Adobe Lightroom, ProCamera, Halide Mark II" :
+                              "Open Camera, Camera FV-5, Adobe Lightroom, ProShot"
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             )}
           </div>
         )}
