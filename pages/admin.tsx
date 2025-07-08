@@ -45,9 +45,9 @@ export default function AdminPhotoBrowser() {
       } else {
         setError(res.message || "Failed to load photos.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load photos", err);
-      setError("Failed to load photos. Please try again.");
+      setError(`Failed to load photos: ${err?.message || 'Unknown error'}. Check console and CloudWatch logs for details.`);
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ export default function AdminPhotoBrowser() {
       } else {
         setError(res.message || "Failed to feature photo.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to feature photo", err);
       setError("Failed to feature photo.");
     } finally {
@@ -138,7 +138,7 @@ export default function AdminPhotoBrowser() {
       } else {
         setError(res.message || "Failed to unfeature photo.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to unfeature photo", err);
       setError("Failed to unfeature photo.");
     } finally {
@@ -158,7 +158,7 @@ export default function AdminPhotoBrowser() {
       if (res.featuredPhotos) {
         setFeaturedPhotos(res.featuredPhotos);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load featured photos", err);
     } finally {
       setFeaturedLoading(false);
@@ -275,7 +275,7 @@ export default function AdminPhotoBrowser() {
                 📸 Photos ({photos.length})
               </h2>
               <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
                   {photos.map((photo, index) => (
                     <div
                       key={photo.key || index}
