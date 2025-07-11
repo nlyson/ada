@@ -4,14 +4,26 @@ import UserSearch from "@/components/UserSearch";
 import { useUnread } from "@/context/UnreadContext";
 import { Amplify } from 'aws-amplify';
 
-// Comment to force build
-
 type LayoutProps = {
   children: React.ReactNode;
   signOut?: () => void;
   user?: { username: string };
   userRole?: string;
 };
+
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: string;
+  badge?: number;
+  condition?: boolean;
+}
+
+interface MenuSection {
+  title: string;
+  icon: string;
+  items: MenuItem[];
+}
 
 export default function Layout({ children, signOut, user, userRole }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,24 +37,71 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
     console.log('🔧 DEPLOYED Auth Config:', Amplify.getConfig().Auth);
   }, [userRole]);
 
+  const menuSections: MenuSection[] = [
+    {
+      title: "Navigate",
+      icon: "🧭",
+      items: [
+        { href: "/", label: "Home", icon: "🏠" },
+        { href: `/users/${user?.username || ''}`, label: "My Profile", icon: "👤", badge: unreadCount > 0 ? unreadCount : undefined, condition: !!user },
+        { href: "/admin", label: "Admin Panel", icon: "⚙️", condition: userRole === "admin" },
+      ]
+    },
+    {
+      title: "Engage", 
+      icon: "✨",
+      items: [
+        { href: "/featured_photos", label: "Featured Photos", icon: "⭐" },
+        { href: "/challenge", label: "Weekly Challenge", icon: "🏆" },
+        { href: "/scavenger_hunt", label: "Scavenger Hunt", icon: "🔍" },
+        { href: "/photo_feedback", label: "Get Photo Feedback", icon: "💬" },
+      ]
+    },
+    {
+      title: "Learn",
+      icon: "📚", 
+      items: [
+        { href: "/daily_tip", label: "Daily Tips", icon: "💡" },
+        { href: "/learninghub", label: "Learning Hub", icon: "🎓" },
+        { href: "/podcasts", label: "Podcast", icon: "🎧" },
+      ]
+    },
+    {
+      title: "Explore",
+      icon: "🌟",
+      items: [
+        { href: "/challenges", label: "Challenge Archive", icon: "📁" },
+        { href: "/scoreboard", label: "High Scores", icon: "🏅" },
+      ]
+    },
+    {
+      title: "Settings",
+      icon: "🔧",
+      items: [
+        { href: "/about_me", label: "About Me", icon: "ℹ️" },
+        { href: "/settings", label: "Settings", icon: "⚙️" },
+        { href: "/feedback", label: "Report a Bug", icon: "🐛" },
+      ]
+    }
+  ];
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#B76E79" }}>
-      <header
-        style={{
-          padding: "1rem",
-          backgroundColor: "#333",
-          color: "#fff",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      {/* Header */}
+      <header style={{
+        padding: "1rem",
+        backgroundColor: "#333", 
+        color: "#fff",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           style={{
             fontSize: "2rem",
             background: "none",
-            border: "none",
+            border: "none", 
             color: "white",
             cursor: "pointer",
           }}
@@ -54,22 +113,20 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
 
       {/* Full-Screen Overlay Menu */}
       {menuOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "#B76E79",
-            zIndex: 1000,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            animation: menuOpen ? "fadeIn 0.3s ease-in-out" : "fadeOut 0.3s ease-in-out",
-          }}
-        >
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0, 
+          width: "100vw",
+          height: "100vh",
+          backgroundColor: "#B76E79",
+          zIndex: 1000,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          animation: menuOpen ? "fadeIn 0.3s ease-in-out" : "fadeOut 0.3s ease-in-out",
+        }}>
           {/* Close Button */}
           <button
             onClick={() => setMenuOpen(false)}
@@ -91,7 +148,7 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
           {/* App Title */}
           <h1 style={{
             fontSize: "3rem",
-            fontWeight: "bold",
+            fontWeight: "bold", 
             color: "white",
             marginBottom: "2rem",
             textAlign: "center",
@@ -134,132 +191,82 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
               </Link>
             </div>
 
-            {/* Group 1: Main Navigation */}
-            <Link href="/" onClick={handleMenuClick} style={menuItemStyle}>
-              Home
-            </Link>
+            {/* Menu Sections */}
+            {menuSections.map((section, sectionIndex) => (
+              <div key={sectionIndex}>
+                {/* Section Header */}
+                <div style={{
+                  display: "flex", 
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "1.5rem 0 0.5rem 0",
+                  color: "white",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold"
+                }}>
+                  <span style={{ marginRight: "0.5rem" }}>{section.icon}</span>
+                  {section.title}
+                </div>
+                
+                {/* Section Items */}
+                {section.items.map((item, itemIndex) => {
+                  if (item.condition === false) return null;
+                  
+                  return (
+                    <Link
+                      key={itemIndex}
+                      href={item.href}
+                      onClick={handleMenuClick}
+                      style={{
+                        color: "white",
+                        textDecoration: "none",
+                        fontSize: "1.3rem",
+                        fontWeight: "400",
+                        padding: "0.8rem 2rem",
+                        textAlign: "center",
+                        display: "block",
+                        width: "100%",
+                        maxWidth: "300px",
+                        transition: "all 0.2s ease",
+                        borderRadius: "0",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ marginRight: "0.5rem" }}>{item.icon}</span>
+                      {item.label}
+                      {item.badge && (
+                        <span style={{
+                          background: "red",
+                          color: "white",
+                          marginLeft: 6,
+                          borderRadius: "50%",
+                          padding: "0 8px",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold",
+                          lineHeight: "1.5rem",
+                        }}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
 
-            {user && (
-              <Link href={`/users/${user.username}`} onClick={handleMenuClick} style={menuItemStyle}>
-                My Profile
-                {unreadCount > 0 && (
-                  <span style={{
-                    background: "red",
-                    color: "white",
-                    marginLeft: 6,
-                    borderRadius: "50%",
-                    padding: "0 8px",
-                    fontSize: "0.75rem",
-                    fontWeight: "bold",
-                    lineHeight: "1.5rem",
-                  }}>
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
-            )}
+                {/* Separator */}
+                <div style={{ 
+                  width: "200px", 
+                  height: "3px", 
+                  backgroundColor: "white", 
+                  margin: "1.5rem auto",
+                  borderRadius: "2px",
+                  border: "1px solid white"
+                }} />
+              </div>
+            ))}
 
-            {userRole === "admin" && (
-              <Link href="/admin" onClick={handleMenuClick} style={menuItemStyle}>
-                Admin Panel
-              </Link>
-            )}
-
-            {/* Separator */}
-            <div style={{ 
-              width: "200px", 
-              height: "3px", 
-              backgroundColor: "white", 
-              margin: "1.5rem auto",
-              borderRadius: "2px",
-              border: "1px solid white"
-            }}></div>
-
-            {/* Group 2: Engage Section */}
-            <Link href="/featured_photos" onClick={handleMenuClick} style={menuItemStyle}>
-              Featured Photos
-            </Link>
-            <Link href="/challenge" onClick={handleMenuClick} style={menuItemStyle}>
-              Weekly Challenge
-            </Link>
-            <Link href="/scavenger_hunt" onClick={handleMenuClick} style={menuItemStyle}>
-              Scavenger Hunt
-            </Link>
-            <Link href="/photo_feedback" onClick={handleMenuClick} style={menuItemStyle}>
-              Get Photo Feedback
-            </Link>
-
-            {/* Separator */}
-            <div style={{ 
-              width: "200px", 
-              height: "3px", 
-              backgroundColor: "white", 
-              margin: "1.5rem auto",
-              borderRadius: "2px",
-              border: "1px solid white"
-            }}></div>
-
-            {/* Group 3: Learn Section */}
-            <Link href="/daily_tip" onClick={handleMenuClick} style={menuItemStyle}>
-              Daily Tips
-            </Link>
-            <Link href="/learninghub" onClick={handleMenuClick} style={menuItemStyle}>
-              Learning Hub
-            </Link>
-            <Link href="/podcasts" onClick={handleMenuClick} style={menuItemStyle}>
-              Podcast
-            </Link>
-
-            {/* Separator */}
-            <div style={{ 
-              width: "200px", 
-              height: "3px", 
-              backgroundColor: "white", 
-              margin: "1.5rem auto",
-              borderRadius: "2px",
-              border: "1px solid white"
-            }}></div>
-
-            {/* Group 4: Explore Section */}
-            <Link href="/challenges" onClick={handleMenuClick} style={menuItemStyle}>
-              Challenge Archive
-            </Link>
-            <Link href="/scoreboard" onClick={handleMenuClick} style={menuItemStyle}>
-              High Scores
-            </Link>
-
-            {/* Separator */}
-            <div style={{ 
-              width: "200px", 
-              height: "3px", 
-              backgroundColor: "white", 
-              margin: "1.5rem auto",
-              borderRadius: "2px",
-              border: "1px solid white"
-            }}></div>
-
-            {/* Group 5: Settings & Actions */}
-            <Link href="/about_me" onClick={handleMenuClick} style={menuItemStyle}>
-              About Me
-            </Link>
-            <Link href="/settings" onClick={handleMenuClick} style={menuItemStyle}>
-              Settings
-            </Link>
-            <Link href="/feedback" onClick={handleMenuClick} style={menuItemStyle}>
-              Report a Bug
-            </Link>
-
-            {/* Separator */}
-            <div style={{ 
-              width: "200px", 
-              height: "3px", 
-              backgroundColor: "white", 
-              margin: "1.5rem auto",
-              borderRadius: "2px",
-              border: "1px solid white"
-            }}></div>
-
-            {/* Group 6: Sign Out */}
+            {/* Sign Out */}
             {signOut && (
               <button
                 onClick={() => {
@@ -267,15 +274,23 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
                   signOut();
                 }}
                 style={{
-                  ...menuItemStyle,
+                  color: "white",
+                  textDecoration: "none",
+                  fontSize: "1.3rem",
+                  fontWeight: "400",
+                  padding: "0.8rem 2rem",
+                  textAlign: "center",
+                  display: "block",
+                  width: "100%",
+                  maxWidth: "300px",
+                  transition: "all 0.2s ease",
+                  borderRadius: "0",
                   backgroundColor: "rgba(230, 57, 70, 0.8)",
                   border: "1px solid rgba(230, 57, 70, 0.9)",
                   cursor: "pointer",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(214, 40, 57, 0.9)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(230, 57, 70, 0.8)")}
               >
-                Sign Out
+                🚪 Sign Out
               </button>
             )}
           </nav>
@@ -298,20 +313,3 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
     </div>
   );
 }
-
-const menuItemStyle = {
-  color: "white",
-  textDecoration: "none",
-  fontSize: "1.3rem",
-  fontWeight: "400",
-  padding: "0.8rem 2rem",
-  textAlign: "center" as const,
-  display: "block",
-  width: "100%",
-  maxWidth: "300px",
-  transition: "all 0.2s ease",
-  borderRadius: "0",
-  backgroundColor: "transparent",
-  border: "none",
-  cursor: "pointer",
-};
