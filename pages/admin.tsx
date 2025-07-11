@@ -1,12 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 
-
 // API endpoints
 const LIST_PHOTOS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/list_photos";
 const FEATURE_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/feature_photo";
-const UNFEATURE_PHOTO_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/unfeature_photo";
-const LIST_FEATURED_PHOTOS_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/fetch_featured_photos";
+const LIST_FEEDBACK_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/list_feedback";
+
+// Types
+interface Photo {
+  key: string;
+  size: number;
+  filename: string;
+  subfolder: string;
+}
+
+interface FeedbackItem {
+  feedbackId: string;
+  description: string;
+  resolved: boolean;
+  timestamp: string;
+  username: string;
+}
 
 export default function AdminPhotoBrowser() {
   const [selectedFolder, setSelectedFolder] = useState<string>("");
@@ -15,9 +29,17 @@ export default function AdminPhotoBrowser() {
   const [error, setError] = useState<string>("");
   const [featureLoading, setFeatureLoading] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
-  const [featuredPhotos, setFeaturedPhotos] = useState<Array<{photoId: string, username: string, caption: string}>>([]);
-  const [featuredLoading, setFeaturedLoading] = useState<boolean>(false);
-  const [unfeaturedLoading, setUnfeaturedLoading] = useState<string>("");
+  
+  // Photo swiper state
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  
+  // Feedback state
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'photos' | 'feedback'>('photos');
 
   const handleLoadPhotos = async () => {
     if (!selectedFolder) return;
@@ -45,43 +67,13 @@ export default function AdminPhotoBrowser() {
       }
     } catch (err: any) {
       console.error("Failed to load photos", err);
-      setError(`Failed to load photos: ${err?.message || 'Unknown error'}. Check console and CloudWatch logs for details.`);
+      setError("Failed to load photos. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePhotoSelect = async (photoKey: string) => {
-    setSelectedPhoto(photoKey);
-    setPhotoLoading(true);
-    setPhotoUrl("");
-    setError("");
-    setSuccessMessage("");
-    
-    console.log("Selected photo key:", photoKey);
-    
-    // Use direct S3 URL (works for public folders)
-    const directUrl = `https://picture-this-storage.s3.amazonaws.com/${photoKey}`;
-    
-    console.log("Direct URL:", directUrl);
-    
-    // Test if the URL works
-    const img = new Image();
-    img.onload = () => {
-      console.log("Photo loaded successfully");
-      setPhotoUrl(directUrl);
-      setPhotoLoading(false);
-    };
-    img.onerror = () => {
-      console.error("Failed to load photo from:", directUrl);
-      setError(`Failed to load photo: ${photoKey}`);
-      setPhotoLoading(false);
-    };
-    
-    img.src = directUrl;
-  };
-
-  const handleFeaturePhoto = async (photo: {key: string, subfolder: string}) => {
+  const handleFeaturePhoto = async (photo: Photo) => {
     setFeatureLoading(photo.key);
     setError("");
     setSuccessMessage("");
@@ -101,7 +93,6 @@ export default function AdminPhotoBrowser() {
       
       if (res.success) {
         setSuccessMessage(`✅ Photo featured successfully for user: ${photo.subfolder}`);
-        loadFeaturedPhotos();
       } else {
         setError(res?.message || "Failed to feature photo.");
       }
@@ -113,106 +104,172 @@ export default function AdminPhotoBrowser() {
     }
   };
 
-  const handleUnfeaturePhoto = async (photoId: string, username: string) => {
-    setUnfeaturedLoading(photoId);
-    setError("");
-    setSuccessMessage("");
-    
-    try {
-      console.log("Unfeaturing photo:", photoId, "for user:", username);
-      
-      const res = await invokeLambdaIam({
-        url: UNFEATURE_PHOTO_URL,
-        method: "POST",
-        body: { 
-          photoId: photoId,
-          username: username
-        },
-      });
-      
-      if (res.success) {
-        setSuccessMessage(`✅ Photo unfeatured successfully for user: ${username}`);
-        loadFeaturedPhotos();
-      } else {
-        setError(res.message || "Failed to unfeature photo.");
-      }
-    } catch (err: any) {
-      console.error("Failed to unfeature photo", err);
-      setError("Failed to unfeature photo.");
-    } finally {
-      setUnfeaturedLoading("");
-    }
-  };
-
-  const loadFeaturedPhotos = async () => {
-    setFeaturedLoading(true);
+  const loadFeedback = async () => {
+    setFeedbackLoading(true);
     try {
       const res = await invokeLambdaIam({
-        url: LIST_FEATURED_PHOTOS_URL,
+        url: LIST_FEEDBACK_URL,
         method: "POST",
         body: {},
       });
       
-      if (res.featuredPhotos) {
-        setFeaturedPhotos(res.featuredPhotos);
+      if (res && res.feedbackList) {
+        setFeedback(res.feedbackList);
       }
     } catch (err: any) {
-      console.error("Failed to load featured photos", err);
+      console.error("Failed to load feedback", err);
     } finally {
-      setFeaturedLoading(false);
+      setFeedbackLoading(false);
     }
   };
 
-  const getThumbnailUrl = (photoKey: string) => {
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe && currentPhotoIndex < photos.length - 1) {
+      setCurrentPhotoIndex(currentPhotoIndex + 1);
+    }
+    if (isRightSwipe && currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(currentPhotoIndex - 1);
+    }
+  };
+
+  const goToNextPhoto = () => {
+    if (currentPhotoIndex < photos.length - 1) {
+      setCurrentPhotoIndex(currentPhotoIndex + 1);
+    }
+  };
+
+  const goToPreviousPhoto = () => {
+    if (currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(currentPhotoIndex - 1);
+    }
+  };
+
+  const getThumbnailUrl = (photoKey: string): string => {
     return `https://picture-this-storage.s3.amazonaws.com/${photoKey}`;
   };
 
-  // Auto-dismiss messages after 5 seconds
-  React.useEffect(() => {
+  // Auto-dismiss messages
+  useEffect(() => {
     if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage("");
-      }, 5000);
+      const timer = setTimeout(() => setSuccessMessage(""), 5000);
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => {
-        setError("");
-      }, 7000);
+      const timer = setTimeout(() => setError(""), 7000);
       return () => clearTimeout(timer);
     }
   }, [error]);
 
-  // Load featured photos on component mount
-  React.useEffect(() => {
-    loadFeaturedPhotos();
+  // Load feedback on mount
+  useEffect(() => {
+    loadFeedback();
   }, []);
 
+  const currentPhoto = photos[currentPhotoIndex];
+  const unresolved = feedback.filter(f => !f.resolved).length;
+
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">📸 Admin Photo Browser</h1>
+    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+      <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '24px', color: '#333' }}>
+        📸 Admin Dashboard
+      </h1>
       
-      {/* Success Message */}
+      {/* Tab Navigation */}
+      <div style={{ marginBottom: '24px' }}>
+        <button
+          onClick={() => setActiveTab('photos')}
+          style={{
+            padding: '12px 24px',
+            marginRight: '8px',
+            backgroundColor: activeTab === 'photos' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'photos' ? 'white' : '#333',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          📸 Photo Management
+        </button>
+        <button
+          onClick={() => setActiveTab('feedback')}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: activeTab === 'feedback' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'feedback' ? 'white' : '#333',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            position: 'relative'
+          }}
+        >
+          💬 Feedback Reports
+          {unresolved > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '-8px',
+              right: '-8px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              borderRadius: '50%',
+              padding: '4px 8px',
+              fontSize: '12px'
+            }}>
+              {unresolved}
+            </span>
+          )}
+        </button>
+      </div>
+      
+      {/* Messages */}
       {successMessage && (
-        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md shadow-sm">
+        <div style={{ 
+          padding: '12px', 
+          marginBottom: '16px', 
+          backgroundColor: '#d4edda', 
+          border: '1px solid #c3e6cb', 
+          borderRadius: '4px',
+          color: '#155724'
+        }}>
           {successMessage}
         </div>
       )}
       
-      {/* Error Message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md shadow-sm">
+        <div style={{ 
+          padding: '12px', 
+          marginBottom: '16px', 
+          backgroundColor: '#f8d7da', 
+          border: '1px solid #f5c6cb', 
+          borderRadius: '4px',
+          color: '#721c24'
+        }}>
           {error}
         </div>
       )}
-      
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* Left Panel: Controls & Preview */}
-        <div className="xl:col-span-1 space-y-6">
-          {/* Folder Selection */}
+
+      {/* Photo Management Tab */}
+      {activeTab === 'photos' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+          {/* Left Panel: Controls */}
           <div>
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
@@ -224,9 +281,8 @@ export default function AdminPhotoBrowser() {
                 style={{ 
                   width: '100%', 
                   padding: '8px', 
-                  border: '1px solid #d6d3d1', 
-                  borderRadius: '4px',
-                  backgroundColor: '#ffffff'
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px' 
                 }}
               >
                 <option value="">Choose a folder...</option>
@@ -244,7 +300,7 @@ export default function AdminPhotoBrowser() {
               style={{
                 width: '100%',
                 padding: '12px',
-                backgroundColor: (!selectedFolder || loading) ? '#a8a29e' : '#8b7355',
+                backgroundColor: (!selectedFolder || loading) ? '#6c757d' : '#007bff',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
@@ -258,9 +314,9 @@ export default function AdminPhotoBrowser() {
             {photos.length > 0 && (
               <div style={{ 
                 padding: '16px', 
-                backgroundColor: '#f9f7f4', 
+                backgroundColor: '#f8f9fa', 
                 borderRadius: '4px',
-                border: '1px solid #d6d3d1'
+                border: '1px solid #ddd'
               }}>
                 <h3 style={{ marginBottom: '8px' }}>📊 Photo Stats</h3>
                 <p>Total: {photos.length}</p>
@@ -326,7 +382,7 @@ export default function AdminPhotoBrowser() {
                     display: 'block',
                     margin: '0 auto 16px',
                     padding: '12px',
-                    backgroundColor: featureLoading === currentPhoto.key ? '#a8a29e' : '#22c55e',
+                    backgroundColor: featureLoading === currentPhoto.key ? '#6c757d' : '#28a745',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
@@ -345,8 +401,8 @@ export default function AdminPhotoBrowser() {
                       width: '40px',
                       height: '40px',
                       borderRadius: '50%',
-                      backgroundColor: currentPhotoIndex === 0 ? '#f5f2ed' : '#8b7355',
-                      color: currentPhotoIndex === 0 ? '#a8a29e' : 'white',
+                      backgroundColor: currentPhotoIndex === 0 ? '#e9ecef' : '#007bff',
+                      color: currentPhotoIndex === 0 ? '#6c757d' : 'white',
                       border: 'none',
                       cursor: currentPhotoIndex === 0 ? 'not-allowed' : 'pointer'
                     }}
@@ -361,8 +417,8 @@ export default function AdminPhotoBrowser() {
                       width: '40px',
                       height: '40px',
                       borderRadius: '50%',
-                      backgroundColor: currentPhotoIndex >= photos.length - 1 ? '#f5f2ed' : '#8b7355',
-                      color: currentPhotoIndex >= photos.length - 1 ? '#a8a29e' : 'white',
+                      backgroundColor: currentPhotoIndex >= photos.length - 1 ? '#e9ecef' : '#007bff',
+                      color: currentPhotoIndex >= photos.length - 1 ? '#6c757d' : 'white',
                       border: 'none',
                       cursor: currentPhotoIndex >= photos.length - 1 ? 'not-allowed' : 'pointer'
                     }}
@@ -386,7 +442,7 @@ export default function AdminPhotoBrowser() {
               disabled={feedbackLoading}
               style={{
                 padding: '8px 16px',
-                backgroundColor: feedbackLoading ? '#a8a29e' : '#8b7355',
+                backgroundColor: feedbackLoading ? '#6c757d' : '#007bff',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
@@ -399,29 +455,29 @@ export default function AdminPhotoBrowser() {
 
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-            <div style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #d6d3d1', borderRadius: '4px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#8b7355' }}>{feedback.length}</div>
+            <div style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#007bff' }}>{feedback.length}</div>
               <div style={{ color: '#666' }}>Total Reports</div>
             </div>
-            <div style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #d6d3d1', borderRadius: '4px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#dc2626' }}>{feedback.filter(f => !f.resolved).length}</div>
+            <div style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#dc3545' }}>{feedback.filter(f => !f.resolved).length}</div>
               <div style={{ color: '#666' }}>Unresolved</div>
             </div>
-            <div style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #d6d3d1', borderRadius: '4px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#059669' }}>{feedback.filter(f => f.resolved).length}</div>
+            <div style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#28a745' }}>{feedback.filter(f => f.resolved).length}</div>
               <div style={{ color: '#666' }}>Resolved</div>
             </div>
           </div>
 
           {/* Table */}
-          <div style={{ backgroundColor: 'white', border: '1px solid #d6d3d1', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: '#f9f7f4' }}>
+              <thead style={{ backgroundColor: '#f8f9fa' }}>
                 <tr>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>User</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Description</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Date</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Status</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>User</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Description</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Date</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -429,7 +485,7 @@ export default function AdminPhotoBrowser() {
                   feedback
                     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                     .map((item, index) => (
-                    <tr key={item.feedbackId} style={{ borderBottom: index < feedback.length - 1 ? '1px solid #f5f2ed' : 'none' }}>
+                    <tr key={item.feedbackId} style={{ borderBottom: index < feedback.length - 1 ? '1px solid #eee' : 'none' }}>
                       <td style={{ padding: '12px' }}>{item.username}</td>
                       <td style={{ padding: '12px' }}>{item.description}</td>
                       <td style={{ padding: '12px' }}>
@@ -446,8 +502,8 @@ export default function AdminPhotoBrowser() {
                           padding: '4px 8px',
                           borderRadius: '4px',
                           fontSize: '0.8rem',
-                          backgroundColor: item.resolved ? '#f0fdf4' : '#fef2f2',
-                          color: item.resolved ? '#059669' : '#dc2626'
+                          backgroundColor: item.resolved ? '#d4edda' : '#f8d7da',
+                          color: item.resolved ? '#155724' : '#721c24'
                         }}>
                           {item.resolved ? '✅ Resolved' : '🔴 Open'}
                         </span>
@@ -466,269 +522,6 @@ export default function AdminPhotoBrowser() {
           </div>
         </div>
       )}
-
-        {/* Center Panel: Photo Grid */}
-        <div className="xl:col-span-2">
-          {photos.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold mb-3">
-                📸 Photos ({photos.length})
-              </h2>
-              <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
-                  {photos.map((photo, index) => (
-                    <div
-                      key={photo.key || index}
-                      className="relative group bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200"
-                    >
-                      {/* Thumbnail */}
-                      <div 
-                        className="w-full aspect-square bg-gray-200 overflow-hidden cursor-pointer"
-                        onClick={() => handlePhotoSelect(photo.key)}
-                      >
-                        <img
-                          src={getThumbnailUrl(photo.key)}
-                          alt={photo.filename}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAyMEg0NFY0NEgyMFYyMFoiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTI4IDI4TDM2IDM2TDQwIDMyTDQ0IDM2VjQ0SDIwVjM2TDI4IDI4WiIgc3Ryb2tlPSIjOUNBM0FGIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K';
-                          }}
-                        />
-                      </div>
-
-                      {/* Photo Info & Actions */}
-                      <div className="p-2">
-                        <p className="text-xs text-gray-600 truncate" title={photo.filename}>
-                          {photo.filename}
-                        </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-400">
-                            {Math.round(photo.size / 1024)}KB
-                          </p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFeaturePhoto(photo);
-                            }}
-                            disabled={featureLoading === photo.key}
-                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
-                            title={`Feature photo for ${photo.subfolder}`}
-                          >
-                            {featureLoading === photo.key ? "⏳" : "⭐"}
-                          </button>
-                        </div>
-                        <p className="text-xs text-gray-500 truncate mt-1" title={photo.subfolder}>
-                          User: {photo.subfolder}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div style={{ color: '#666' }}>Unique Users</div>
-            </div>
-          </div>
-
-          {/* Usage Table */}
-          <div style={{ backgroundColor: 'white', border: '1px solid #d6d3d1', borderRadius: '4px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: '#f9f7f4' }}>
-                <tr>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>User</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Action</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Timestamp</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Status</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Tier</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #d6d3d1' }}>Response Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usageData.length > 0 ? (
-                  usageData
-                    .filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase()))
-                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                    .map((item, index) => (
-                    <tr key={`${item.username}-${item.timestamp}`} style={{ 
-                      borderBottom: index < itemsPerPage - 1 ? '1px solid #f5f2ed' : 'none',
-                      backgroundColor: item.success ? 'white' : '#fef2f2'
-                    }}>
-                      <td style={{ padding: '12px', fontWeight: 'bold' }}>
-                        {item.username}
-                        {item.accountTier === 'premium' && (
-                          <span style={{
-                            marginLeft: '8px',
-                            padding: '2px 6px',
-                            backgroundColor: '#fbbf24',
-                            color: '#92400e',
-                            borderRadius: '8px',
-                            fontSize: '0.7rem',
-                            fontWeight: 'bold'
-                          }}>
-                            ✨ PRO
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{
-                          padding: '4px 8px',
-                          backgroundColor: getActionColor(item.action),
-                          color: 'white',
-                          borderRadius: '4px',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold'
-                        }}>
-                          {formatActionName(item.action)}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', fontSize: '0.9rem' }}>
-                        {new Date(item.timestamp).toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })}
-                      </td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '0.8rem',
-                          backgroundColor: item.success ? '#f0fdf4' : '#fef2f2',
-                          color: item.success ? '#059669' : '#dc2626'
-                        }}>
-                          {item.success ? '✅ Success' : '❌ Failed'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', fontSize: '0.9rem' }}>
-                        {item.accountTier || 'unknown'}
-                      </td>
-                      <td style={{ padding: '12px', fontSize: '0.9rem' }}>
-                        {item.responseTime ? `${item.responseTime}ms` : '-'}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#666' }}>
-                      {usageLoading ? "Loading usage data..." : "No usage data available"}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {usageData.filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase())).length > itemsPerPage && (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              gap: '16px', 
-              marginTop: '24px' 
-            }}>
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: currentPage === 1 ? '#f5f2ed' : '#8b7355',
-                  color: currentPage === 1 ? '#a8a29e' : 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                }}
-              >
-                Previous
-              </button>
-              <span style={{ color: '#666' }}>
-                Page {currentPage} of {Math.ceil(usageData.filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase())).length / itemsPerPage)}
-              </span>
-              <button
-                onClick={() => setCurrentPage(Math.min(Math.ceil(usageData.filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase())).length / itemsPerPage), currentPage + 1))}
-                disabled={currentPage >= Math.ceil(usageData.filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase())).length / itemsPerPage)}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: currentPage >= Math.ceil(usageData.filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase())).length / itemsPerPage) ? '#f5f2ed' : '#8b7355',
-                  color: currentPage >= Math.ceil(usageData.filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase())).length / itemsPerPage) ? '#a8a29e' : 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: currentPage >= Math.ceil(usageData.filter(item => !['nathan', 'jama'].includes(item.username.toLowerCase())).length / itemsPerPage) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel: Featured Photos Management */}
-        <div className="xl:col-span-1">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-semibold">⭐ Featured Photos</h2>
-              <button
-                onClick={loadFeaturedPhotos}
-                disabled={featuredLoading}
-                className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:bg-gray-400"
-              >
-                {featuredLoading ? "🔄" : "🔄 Refresh"}
-              </button>
-            </div>
-            
-            <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
-              {featuredPhotos.length > 0 ? (
-                <div className="p-2 space-y-2">
-                  {featuredPhotos.map((featured, index) => (
-                    <div
-                      key={`${featured.photoId}-${featured.username}`}
-                      className="flex items-center space-x-2 p-2 bg-gray-50 rounded border"
-                    >
-                      {/* Small thumbnail */}
-                      <div className="w-12 h-12 bg-gray-200 rounded overflow-hidden flex-shrink-0">
-                        <img
-                          src={`https://picture-this-storage.s3.amazonaws.com/${featured.photoId}`}
-                          alt="Featured"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAyMEg0NFY0NEgyMFYyMFoiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTI4IDI4TDM2IDM2TDQwIDMyTDQ0IDM2VjQ0SDIwVjM2TDI4IDI4WiIgc3Ryb2tlPSIjOUNBM0FGIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K';
-                          }}
-                        />
-                      </div>
-                      
-                      {/* Photo info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">
-                          {featured.username}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {featured.caption || "No caption"}
-                        </p>
-                      </div>
-                      
-                      {/* Remove button */}
-                      <button
-                        onClick={() => handleUnfeaturePhoto(featured.photoId, featured.username)}
-                        disabled={unfeaturedLoading === featured.photoId}
-                        className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:bg-gray-400 flex-shrink-0"
-                        title="Remove from featured"
-                      >
-                        {unfeaturedLoading === featured.photoId ? "⏳" : "❌"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 text-center text-gray-500">
-                  {featuredLoading ? "Loading..." : "No featured photos"}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

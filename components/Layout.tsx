@@ -14,12 +14,14 @@ type LayoutProps = {
 interface MenuItem {
   href: string;
   label: string;
+  icon: string;
   badge?: number;
   condition?: boolean;
 }
 
 interface MenuSection {
   title: string;
+  icon: string;
   items: MenuItem[];
 }
 
@@ -38,67 +40,68 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
   const menuSections: MenuSection[] = [
     {
       title: "Navigate",
+      icon: "🧭",
       items: [
-        { href: "/", label: "Home" },
-        { href: `/users/${user?.username || ''}`, label: "My Profile", badge: unreadCount > 0 ? unreadCount : undefined, condition: !!user },
-        { href: "/admin", label: "Admin Panel", condition: userRole === "admin" },
+        { href: "/", label: "Home", icon: "🏠" },
+        { href: `/users/${user?.username || ''}`, label: "My Profile", icon: "👤", badge: unreadCount > 0 ? unreadCount : undefined, condition: !!user },
+        { href: "/admin", label: "Admin Panel", icon: "⚙️", condition: userRole === "admin" },
       ]
     },
     {
-      title: "Create",
+      title: "Engage", 
+      icon: "✨",
       items: [
-        { href: "/featured_photos", label: "Featured Photos" },
-        { href: "/challenge", label: "Weekly Challenge" },
-        { href: "/scavenger_hunt", label: "Scavenger Hunt" },
-        { href: "/photo_feedback", label: "Get Feedback" },
+        { href: "/featured_photos", label: "Featured Photos", icon: "⭐" },
+        { href: "/challenge", label: "Weekly Challenge", icon: "🏆" },
+        { href: "/scavenger_hunt", label: "Scavenger Hunt", icon: "🔍" },
+        { href: "/photo_feedback", label: "Get Photo Feedback", icon: "💬" },
       ]
     },
     {
       title: "Learn",
+      icon: "📚", 
       items: [
-        { href: "/daily_tip", label: "Daily Tips" },
-        { href: "/learninghub", label: "Learning Hub" },
-        { href: "/podcasts", label: "Podcast" },
+        { href: "/daily_tip", label: "Daily Tips", icon: "💡" },
+        { href: "/learninghub", label: "Learning Hub", icon: "🎓" },
+        { href: "/podcasts", label: "Podcast", icon: "🎧" },
       ]
     },
     {
       title: "Explore",
+      icon: "🌟",
       items: [
-        { href: "/challenges", label: "Challenge Archive" },
-        { href: "/scavenger_browser", label: "Scavenger Gallery ✨ NEW" },
-        { href: "/challenge_browser", label: "Challenge Gallery ✨ NEW" },
-        { href: "/scoreboard", label: "High Scores" },
-        { href: "/browse_profiles", label: "Browse Profiles" },
+        { href: "/challenges", label: "Challenge Archive", icon: "📁" },
+        { href: "/scoreboard", label: "High Scores", icon: "🏅" },
       ]
     },
     {
-      title: "Account",
+      title: "Settings",
+      icon: "🔧",
       items: [
-        { href: "/settings", label: "Settings" },
-        { href: "/feedback", label: "Report Issue" },
-        { href: "/about_me", label: "About" },
+        { href: "/about_me", label: "About Me", icon: "ℹ️" },
+        { href: "/settings", label: "Settings", icon: "⚙️" },
+        { href: "/feedback", label: "Report a Bug", icon: "🐛" },
       ]
     }
   ];
 
   return (
-    <div style={{ minHeight: "100vh", color: "#6b7280", backgroundColor: "#efede4" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#B76E79" }}>
       {/* Header */}
       <header style={{
         padding: "1rem",
-        backgroundColor: "#44403c",
+        backgroundColor: "#333", 
         color: "#fff",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
       }}>
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           style={{
             fontSize: "1.5rem",
             background: "none",
-            border: "none",
+            border: "none", 
             color: "white",
             cursor: "pointer",
             padding: "0.5rem",
@@ -119,56 +122,49 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
         <div style={{
           position: "fixed",
           top: 0,
-          left: 0,
+          left: 0, 
           width: "100vw",
           height: "100vh",
-          backgroundColor: "#efede4",
+          backgroundColor: "#B76E79",
           zIndex: 1000,
           display: "flex",
           flexDirection: "column",
-          animation: "fadeIn 0.2s ease-out",
-          overflowY: "auto"
+          alignItems: "center",
+          justifyContent: "center",
+          animation: menuOpen ? "fadeIn 0.3s ease-in-out" : "fadeOut 0.3s ease-in-out",
         }}>
-          {/* Header */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "1.5rem 2rem",
-            borderBottom: "1px solid rgba(255,255,255,0.2)"
-          }}>
-            <h1 style={{
-              fontSize: "1.5rem",
-              fontWeight: "700",
-              color: "#6b7280",
-              margin: 0,
-              letterSpacing: "-0.025em"
-            }}>
-              Photo Mentor
-            </h1>
-            <button
-              onClick={() => setMenuOpen(false)}
-              style={{
-                fontSize: "1.5rem",
-                background: "none",
-                border: "none",
-                color: "white",
-                cursor: "pointer",
-                padding: "0.5rem",
-                borderRadius: "4px",
-                transition: "background-color 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-            >
-              ✕
-            </button>
-          </div>
+          {/* Close Button */}
+          <button
+            onClick={() => setMenuOpen(false)}
+            style={{
+              position: "absolute",
+              top: "1rem",
+              right: "1rem",
+              fontSize: "2rem",
+              background: "none",
+              border: "none",
+              color: "white",
+              cursor: "pointer",
+              zIndex: 1001,
+            }}
+          >
+            ✕
+          </button>
 
-          {/* Menu Content */}
-          <div style={{
-            flex: 1,
-            padding: "2rem",
+          {/* App Title */}
+          <h1 style={{
+            fontSize: "3rem",
+            fontWeight: "bold", 
+            color: "white",
+            marginBottom: "2rem",
+            textAlign: "center",
+            textShadow: "2px 2px 4px rgba(0,0,0,0.3)",
+          }}>
+            Photo<br />Mentor
+          </h1>
+
+          {/* Menu Items */}
+          <nav style={{
             display: "flex",
             flexDirection: "column",
             maxWidth: "400px",
@@ -189,102 +185,123 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
               <UserSearch onSearch={handleMenuClick} />
             </div>
 
+            {/* Browse Profiles */}
+            <div style={{ marginBottom: "2rem", textAlign: "center" }}>
+              <Link href="/browse_profiles" onClick={handleMenuClick} style={{
+                color: "white",
+                textDecoration: "none",
+                fontSize: "1.1rem",
+                padding: "0.5rem 1rem",
+                borderRadius: "8px",
+                backgroundColor: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                display: "inline-block",
+              }}>
+                📇 Browse Profiles
+              </Link>
+            </div>
+
             {/* Menu Sections */}
-            <nav style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "2rem",
-              flex: 1
-            }}>
-              {menuSections.map((section, sectionIndex) => (
-                <div key={sectionIndex}>
-                  {/* Section Header */}
-                  <h4 style={{
-                    fontSize: "0.875rem",
-                    fontWeight: "600",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                    marginBottom: "1rem",
-                    paddingLeft: "1rem"
-                  }}>
-                    {section.title}
-                  </h4>
-
-                  {/* Section Items */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                    {section.items.map((item, itemIndex) => {
-                      if (item.condition === false) return null;
-
-                      return (
-                        <Link
-                          key={itemIndex}
-                          href={item.href}
-                          onClick={handleMenuClick}
-                          style={{
-                            color: "#6b7280",
-                            textDecoration: "none",
-                            fontSize: "1.125rem",
-                            fontWeight: "400",
-                            padding: "0.75rem 1rem",
-                            borderRadius: "8px",
-                            transition: "all 0.2s ease",
-                            backgroundColor: "transparent",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between"
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                        >
-                          <span>{item.label}</span>
-                          {item.badge && (
-                            <span style={{
-                              backgroundColor: "#ef4444",
-                              color: "white",
-                              borderRadius: "50%",
-                              padding: "0.25rem 0.5rem",
-                              fontSize: "0.75rem",
-                              fontWeight: "600",
-                              minWidth: "1.5rem",
-                              textAlign: "center"
-                            }}>
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
+            {menuSections.map((section, sectionIndex) => (
+              <div key={sectionIndex}>
+                {/* Section Header */}
+                <div style={{
+                  display: "flex", 
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "1.5rem 0 0.5rem 0",
+                  color: "white",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold"
+                }}>
+                  <span style={{ marginRight: "0.5rem" }}>{section.icon}</span>
+                  {section.title}
                 </div>
-              ))}
-            </nav>
+                
+                {/* Section Items */}
+                {section.items.map((item, itemIndex) => {
+                  if (item.condition === false) return null;
+                  
+                  return (
+                    <Link
+                      key={itemIndex}
+                      href={item.href}
+                      onClick={handleMenuClick}
+                      style={{
+                        color: "white",
+                        textDecoration: "none",
+                        fontSize: "1.3rem",
+                        fontWeight: "400",
+                        padding: "0.8rem 2rem",
+                        textAlign: "center",
+                        display: "block",
+                        width: "100%",
+                        maxWidth: "300px",
+                        transition: "all 0.2s ease",
+                        borderRadius: "0",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ marginRight: "0.5rem" }}>{item.icon}</span>
+                      {item.label}
+                      {item.badge && (
+                        <span style={{
+                          background: "red",
+                          color: "white",
+                          marginLeft: 6,
+                          borderRadius: "50%",
+                          padding: "0 8px",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold",
+                          lineHeight: "1.5rem",
+                        }}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+
+                {/* Separator */}
+                <div style={{ 
+                  width: "200px", 
+                  height: "3px", 
+                  backgroundColor: "white", 
+                  margin: "1.5rem auto",
+                  borderRadius: "2px",
+                  border: "1px solid white"
+                }} />
+              </div>
+            ))}
 
             {/* Sign Out */}
             {signOut && (
-              <div style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.2)" }}>
-                <button
-                  onClick={() => {
-                    handleMenuClick();
-                    signOut();
-                  }}
-                  style={{
-                    width: "100%",
-                    color: "white",
-                    fontSize: "1.125rem",
-                    fontWeight: "500",
-                    padding: "1rem",
-                    borderRadius: "8px",
-                    backgroundColor: "rgba(239, 68, 68, 0.2)",
-                    border: "1px solid rgba(239, 68, 68, 0.4)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease"
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.3)"}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.2)"}
-                >
-                  Sign Out
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  handleMenuClick();
+                  signOut();
+                }}
+                style={{
+                  color: "white",
+                  textDecoration: "none",
+                  fontSize: "1.3rem",
+                  fontWeight: "400",
+                  padding: "0.8rem 2rem",
+                  textAlign: "center",
+                  display: "block",
+                  width: "100%",
+                  maxWidth: "300px",
+                  transition: "all 0.2s ease",
+                  borderRadius: "0",
+                  backgroundColor: "rgba(230, 57, 70, 0.8)",
+                  border: "1px solid rgba(230, 57, 70, 0.9)",
+                  cursor: "pointer",
+                }}
+              >
+                🚪 Sign Out
+              </button>
             )}
           </div>
         </div>
