@@ -6,16 +6,15 @@
     "Fira Mono", "Droid Sans Mono", "Courier New", monospace;
 
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 239, 237, 228; /* Changed to warm beige #efede4 */
-  --background-end-rgb: 239, 237, 228;   /* Changed to warm beige #efede4 */
+  --background-start-rgb: 183, 110, 121; /* Changed to your color #B76E79 */
+  --background-end-rgb: 183, 110, 121;   /* Changed to your color #B76E79 */
 
-  /* Updated glow effects to match warm theme */
   --primary-glow: conic-gradient(
     from 180deg at 50% 50%,
-    #8b735533 0deg,
-    #a8956533 55deg,
-    #c4b08a33 120deg,
-    #8b735533 160deg,
+    #16abff33 0deg,
+    #0885ff33 55deg,
+    #54d6ff33 120deg,
+    #0071ff33 160deg,
     transparent 360deg
   );
   --secondary-glow: radial-gradient(
@@ -23,58 +22,54 @@
     rgba(255, 255, 255, 0)
   );
 
-  /* Warmer tile colors */
-  --tile-start-rgb: 249, 247, 244; /* #f9f7f4 */
-  --tile-end-rgb: 245, 242, 237;   /* #f5f2ed */
+  --tile-start-rgb: 239, 245, 249;
+  --tile-end-rgb: 228, 232, 233;
   --tile-border: conic-gradient(
-    #8b735580,
-    #8b735540,
-    #8b735530,
-    #8b735520,
-    #8b735510,
-    #8b735510,
-    #8b735580
+    #00000080,
+    #00000040,
+    #00000030,
+    #00000020,
+    #00000010,
+    #00000010,
+    #00000080
   );
 
-  /* Warm neutral callouts and cards */
-  --callout-rgb: 249, 247, 244;    /* #f9f7f4 */
-  --callout-border-rgb: 214, 211, 209; /* #d6d3d1 */
-  --card-rgb: 255, 255, 255;       /* White cards on warm background */
-  --card-border-rgb: 214, 211, 209; /* #d6d3d1 */
+  --callout-rgb: 238, 240, 241;
+  --callout-border-rgb: 172, 175, 176;
+  --card-rgb: 180, 185, 188;
+  --card-border-rgb: 131, 134, 135;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
-    /* Keep warm theme even in dark mode, but darker version */
-    --background-start-rgb: 68, 64, 60;  /* Darker warm brown #44403c */
-    --background-end-rgb: 68, 64, 60;    /* Darker warm brown #44403c */
+    --background-start-rgb: 183, 110, 121; /* Changed for dark mode too */
+    --background-end-rgb: 183, 110, 121;   /* Changed for dark mode too */
 
-    --primary-glow: radial-gradient(rgba(139, 115, 85, 0.4), rgba(139, 115, 85, 0));
+    --primary-glow: radial-gradient(rgba(1, 65, 255, 0.4), rgba(1, 65, 255, 0));
     --secondary-glow: linear-gradient(
       to bottom right,
-      rgba(139, 115, 85, 0),
-      rgba(139, 115, 85, 0),
-      rgba(139, 115, 85, 0.3)
+      rgba(1, 65, 255, 0),
+      rgba(1, 65, 255, 0),
+      rgba(1, 65, 255, 0.3)
     );
 
-    /* Dark mode warm tiles */
-    --tile-start-rgb: 87, 83, 78;    /* #57534e */
-    --tile-end-rgb: 68, 64, 60;      /* #44403c */
+    --tile-start-rgb: 2, 13, 46;
+    --tile-end-rgb: 2, 5, 19;
     --tile-border: conic-gradient(
-      #a8a29e80,
-      #a8a29e40,
-      #a8a29e30,
-      #a8a29e20,
-      #a8a29e10,
-      #a8a29e10,
-      #a8a29e80
+      #ffffff80,
+      #ffffff40,
+      #ffffff30,
+      #ffffff20,
+      #ffffff10,
+      #ffffff10,
+      #ffffff80
     );
 
-    --callout-rgb: 68, 64, 60;       /* #44403c */
-    --callout-border-rgb: 120, 113, 108; /* #78716c */
-    --card-rgb: 87, 83, 78;          /* #57534e */
-    --card-border-rgb: 168, 162, 158; /* #a8a29e */
+    --callout-rgb: 20, 20, 20;
+    --callout-border-rgb: 108, 108, 108;
+    --card-rgb: 100, 100, 100;
+    --card-border-rgb: 200, 200, 200;
   }
 }
 
@@ -92,7 +87,7 @@ body {
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: #efede4; /* Warm beige background */
+  background: #B76E79; /* Simple solid background */
 }
 
 a {
@@ -104,10 +99,6 @@ a {
   html {
     color-scheme: dark;
   }
-  
-  body {
-    background: #44403c; /* Darker warm brown for dark mode */
-  }
 }
 
 /* ------------------------------ */
@@ -116,53 +107,11 @@ a {
 
 ul.mobile-menu li {
   padding: 12px 16px;
-  border-bottom: 1px solid #d6d3d1; /* Updated to warm border color */
+  border-bottom: 1px solid #eee;
 }
 
 ul.mobile-menu hr {
   margin: 12px 0;
   border: none;
-  border-top: 1px solid #a8a29e; /* Updated to warm border color */
-}
-
-/* ------------------------------ */
-/* 🎨 Additional Warm Theme Utilities */
-/* ------------------------------ */
-
-/* Consistent warm button styles */
-.btn-primary {
-  background-color: #8b7355;
-  color: white;
-  border: 1px solid #78716c;
-}
-
-.btn-primary:hover {
-  background-color: #78716c;
-}
-
-.btn-secondary {
-  background-color: #f9f7f4;
-  color: #44403c;
-  border: 1px solid #d6d3d1;
-}
-
-.btn-secondary:hover {
-  background-color: #f5f2ed;
-}
-
-/* Warm card styles */
-.card {
-  background-color: #ffffff;
-  border: 1px solid #d6d3d1;
-  border-radius: var(--border-radius);
-}
-
-/* Premium badge consistent styling */
-.premium-badge {
-  background-color: #fbbf24;
-  color: #92400e;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: bold;
+  border-top: 1px solid #ccc;
 }
