@@ -26,33 +26,40 @@ interface ChallengeBrowserProps {
 }
 
 export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) {
-  const [selectedChallenge, setSelectedChallenge] = useState<string>("weekly_08"); // Default to latest
+  const [selectedChallenge, setSelectedChallenge] = useState<string>("weekly_08");
   const [entries, setEntries] = useState<ChallengeEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [likeLoading, setLikeLoading] = useState<string>("");
-  
-  const entriesPerPage = 12; // Grid layout works well with 12
 
-  console.log('🏆 DEBUG: Selected challenge:', selectedChallenge);
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [modalData, setModalData] = useState({
+    feedback: '',
+    username: '',
+    challengeTitle: '',
+    score: 0
+  });
+
+  const entriesPerPage = 12;
 
   const loadEntriesForChallenge = async (challengeId: string) => {
     setLoading(true);
     setError("");
     setCurrentPage(1);
-    
+
     try {
       const res = await invokeLambdaIam({
         url: GET_CHALLENGE_ENTRIES_URL,
         method: "POST",
-        body: { 
+        body: {
           challengeId: challengeId,
           includeUserReactions: true,
           currentUser: user?.username
         },
       });
-      
+
       if (res && res.success && res.entries) {
         setEntries(res.entries);
       } else {
@@ -87,15 +94,14 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
       });
 
       if (res && res.success) {
-        // Update the entry in our local state
-        setEntries(prevEntries => 
-          prevEntries.map(entry => 
-            entry.entryId === entryId 
+        setEntries(prevEntries =>
+          prevEntries.map(entry =>
+            entry.entryId === entryId
               ? {
-                  ...entry,
-                  likes: res.newLikeCount || (entry.likes || 0) + (entry.userHasLiked ? -1 : 1),
-                  userHasLiked: !entry.userHasLiked
-                }
+                ...entry,
+                likes: res.newLikeCount || (entry.likes || 0) + (entry.userHasLiked ? -1 : 1),
+                userHasLiked: !entry.userHasLiked
+              }
               : entry
           )
         );
@@ -110,6 +116,16 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
     }
   };
 
+  const openFeedbackModal = (feedback: string, username: string, challengeTitle: string, score: number) => {
+    setModalData({ feedback, username, challengeTitle, score });
+    setShowModal(true);
+  };
+
+  const closeFeedbackModal = () => {
+    setShowModal(false);
+    setModalData({ feedback: '', username: '', challengeTitle: '', score: 0 });
+  };
+
   const getImageUrl = (imageKey: string): string => {
     return `https://picture-this-storage.s3.amazonaws.com/${imageKey}`;
   };
@@ -121,16 +137,6 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
     });
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  // Get challenge options
   const getChallengeOptions = () => {
     return [
       { value: "weekly_08", label: "🏃‍♂️ Challenge #8: Motion & Movement" },
@@ -151,12 +157,10 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
     return current ? current.label : "Weekly Challenge";
   };
 
-  // Load entries when component mounts or challenge changes
   useEffect(() => {
     loadEntriesForChallenge(selectedChallenge);
   }, [selectedChallenge]);
 
-  // Auto-dismiss error messages
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(""), 5000);
@@ -164,81 +168,96 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
     }
   }, [error]);
 
-  // Calculate pagination
   const totalPages = Math.ceil(entries.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
   const currentEntries = entries.slice(startIndex, startIndex + entriesPerPage);
 
   return (
-    <div style={{ 
-      padding: '24px', 
-      maxWidth: '1200px', 
+    <div style={{
+      padding: '16px',
+      maxWidth: '1200px',
       margin: '0 auto',
       backgroundColor: '#efede4',
       minHeight: '100vh'
     }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+      <h1 style={{
+        fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+        fontWeight: 'bold',
+        marginBottom: '8px',
+        color: '#333',
+        textAlign: 'center'
+      }}>
         🏆 Weekly Challenge Gallery
       </h1>
-      <p style={{ color: '#666', marginBottom: '24px' }}>
+      <p style={{
+        color: '#666',
+        marginBottom: '24px',
+        textAlign: 'center',
+        fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
+      }}>
         Browse weekly challenge submissions from the community
       </p>
-      
+
       {/* Challenge Selector */}
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '16px', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
         marginBottom: '24px',
         padding: '16px',
         backgroundColor: '#ffffff',
         borderRadius: '8px',
         border: '1px solid #d6d3d1'
       }}>
-        <label style={{ fontWeight: 'bold', color: '#333' }}>
+        <label style={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>
           🏆 Select Challenge:
         </label>
-        <select
-          value={selectedChallenge}
-          onChange={(e) => setSelectedChallenge(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #d6d3d1',
-            borderRadius: '4px',
-            backgroundColor: '#ffffff',
-            fontSize: '1rem',
-            minWidth: '300px'
-          }}
-        >
-          {getChallengeOptions().map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={() => loadEntriesForChallenge(selectedChallenge)}
-          disabled={loading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: loading ? '#a8a29e' : '#8b7355',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? "🔄 Loading..." : "🔄 Refresh"}
-        </button>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <select
+            value={selectedChallenge}
+            onChange={(e) => setSelectedChallenge(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #d6d3d1',
+              borderRadius: '4px',
+              backgroundColor: '#ffffff',
+              fontSize: '1rem',
+              flex: '1',
+              minWidth: '250px'
+            }}
+          >
+            {getChallengeOptions().map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => loadEntriesForChallenge(selectedChallenge)}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: loading ? '#a8a29e' : '#8b7355',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '0.9rem',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {loading ? "🔄 Loading..." : "🔄 Refresh"}
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div style={{ 
-          padding: '12px', 
-          marginBottom: '16px', 
-          backgroundColor: '#fef2f2', 
-          border: '1px solid #ef4444', 
+        <div style={{
+          padding: '12px',
+          marginBottom: '16px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #ef4444',
           borderRadius: '4px',
           color: '#dc2626'
         }}>
@@ -247,10 +266,10 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
       )}
 
       {/* Stats Bar */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
         marginBottom: '24px',
         padding: '16px',
         backgroundColor: '#f9f7f4',
@@ -258,7 +277,7 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
         border: '1px solid #d6d3d1'
       }}>
         <div>
-          <h3 style={{ margin: 0, color: '#333' }}>
+          <h3 style={{ margin: 0, color: '#333', fontSize: 'clamp(1rem, 3vw, 1.2rem)' }}>
             {getCurrentChallengeTitle()}
           </h3>
           <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
@@ -266,7 +285,11 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
           </p>
         </div>
         {entries.length > 0 && (
-          <div style={{ textAlign: 'right' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}>
             <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
               {new Set(entries.map(e => e.username)).size} unique participants
             </p>
@@ -285,10 +308,10 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
         </div>
       ) : currentEntries.length > 0 ? (
         <>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-            gap: '20px',
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 'clamp(12px, 3vw, 20px)',
             marginBottom: '32px'
           }}>
             {currentEntries.map((entry) => (
@@ -347,16 +370,16 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                 {/* Content */}
                 <div style={{ padding: '16px' }}>
                   {/* User info and score */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     marginBottom: '8px'
                   }}>
                     <div>
-                      <h4 style={{ 
-                        margin: 0, 
-                        fontSize: '1rem', 
+                      <h4 style={{
+                        margin: 0,
+                        fontSize: '1rem',
                         fontWeight: 'bold',
                         color: '#333'
                       }}>
@@ -372,7 +395,7 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Like button */}
                     <button
                       onClick={() => handleLikeEntry(entry.entryId)}
@@ -410,9 +433,9 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                     marginBottom: '8px',
                     border: '1px solid #0ea5e9'
                   }}>
-                    <p style={{ 
-                      margin: 0, 
-                      fontSize: '0.85rem', 
+                    <p style={{
+                      margin: 0,
+                      fontSize: '0.85rem',
                       color: '#0369a1',
                       fontWeight: 'bold'
                     }}>
@@ -429,9 +452,9 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                       marginBottom: '8px',
                       border: '1px solid #d6d3d1'
                     }}>
-                      <p style={{ 
-                        margin: 0, 
-                        fontSize: '0.85rem', 
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.85rem',
                         color: '#666',
                         fontStyle: 'italic'
                       }}>
@@ -440,31 +463,45 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                     </div>
                   )}
 
-                  {/* AI Feedback (shortened) */}
+                  {/* AI Feedback (clickable) */}
                   {entry.feedback && (
-                    <div style={{
-                      backgroundColor: '#fef7ed',
-                      padding: '8px',
-                      borderRadius: '6px',
-                      border: '1px solid #fb923c'
-                    }}>
-                      <p style={{ 
-                        margin: 0, 
-                        fontSize: '0.8rem', 
+                    <div
+                      style={{
+                        backgroundColor: '#fef7ed',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        border: '1px solid #fb923c',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onClick={() => openFeedbackModal(
+                        entry.feedback || '',
+                        entry.username,
+                        entry.challengeTitle,
+                        entry.score || 0
+                      )}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fed7aa'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fef7ed'}
+                    >
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.8rem',
                         color: '#c2410c',
                         fontWeight: 'bold',
                         marginBottom: '4px'
                       }}>
-                        🤖 AI Feedback:
+                        🤖 AI Feedback: <span style={{ fontSize: '0.7rem', fontWeight: 'normal' }}>
+                          (click to read full)
+                        </span>
                       </p>
-                      <p style={{ 
-                        margin: 0, 
-                        fontSize: '0.8rem', 
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.8rem',
                         color: '#92400e',
                         lineHeight: '1.3'
                       }}>
-                        {entry.feedback.length > 120 ? 
-                          `${entry.feedback.substring(0, 120)}...` : 
+                        {entry.feedback.length > 120 ?
+                          `${entry.feedback.substring(0, 120)}...` :
                           entry.feedback
                         }
                       </p>
@@ -477,53 +514,66 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              gap: '16px', 
-              marginTop: '32px' 
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+              marginTop: '32px'
             }}>
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: currentPage === 1 ? '#f5f2ed' : '#8b7355',
-                  color: currentPage === 1 ? '#a8a29e' : 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                }}
-              >
-                ← Previous
-              </button>
-              
-              <span style={{ color: '#666', fontSize: '0.9rem' }}>
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap',
+                justifyContent: 'center'
+              }}>
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: currentPage === 1 ? '#f5f2ed' : '#8b7355',
+                    color: currentPage === 1 ? '#a8a29e' : 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  ← Previous
+                </button>
+
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage >= totalPages}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: currentPage >= totalPages ? '#f5f2ed' : '#8b7355',
+                    color: currentPage >= totalPages ? '#a8a29e' : 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
+
+              <span style={{
+                color: '#666',
+                fontSize: '0.9rem',
+                textAlign: 'center'
+              }}>
                 Page {currentPage} of {totalPages} ({entries.length} total entries)
               </span>
-              
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage >= totalPages}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: currentPage >= totalPages ? '#f5f2ed' : '#8b7355',
-                  color: currentPage >= totalPages ? '#a8a29e' : 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer'
-                }}
-              >
-                Next →
-              </button>
             </div>
           )}
         </>
       ) : (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px', 
+        <div style={{
+          textAlign: 'center',
+          padding: '40px',
           color: '#666',
           backgroundColor: '#f9f7f4',
           borderRadius: '8px',
@@ -535,6 +585,110 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
           <p style={{ fontSize: '0.9rem', marginTop: '16px' }}>
             Try selecting a different challenge or check back later!
           </p>
+        </div>
+      )}
+
+      {/* Feedback Modal */}
+      {showModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: '16px'
+            }}>
+              <div>
+                <h3 style={{
+                  margin: 0,
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  color: '#333'
+                }}>
+                  🤖 AI Feedback for @{modalData.username}
+                </h3>
+                <p style={{
+                  margin: '4px 0 0 0',
+                  fontSize: '0.9rem',
+                  color: '#666'
+                }}>
+                  {modalData.challengeTitle} • Score: {modalData.score}/100
+                </p>
+              </div>
+              <button
+                onClick={closeFeedbackModal}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#666',
+                  padding: '0',
+                  lineHeight: 1
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Feedback Content */}
+            <div style={{
+              backgroundColor: '#fef7ed',
+              padding: '16px',
+              borderRadius: '8px',
+              border: '1px solid #fb923c',
+              marginBottom: '20px'
+            }}>
+              <p style={{
+                margin: 0,
+                fontSize: '0.9rem',
+                color: '#92400e',
+                lineHeight: '1.5'
+              }}>
+                {modalData.feedback}
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={closeFeedbackModal}
+                style={{
+                  padding: '8px 24px',
+                  backgroundColor: '#8b7355',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
