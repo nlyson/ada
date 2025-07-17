@@ -435,7 +435,7 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                         color: '#666',
                         fontStyle: 'italic'
                       }}>
-                        💭 "{entry.caption}"
+                        💭 &quot;{entry.caption}&quot;
                       </p>
                     </div>
                   )}
