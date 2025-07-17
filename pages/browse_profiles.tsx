@@ -44,8 +44,25 @@ export default function BrowseProfiles() {
         profileUrl: `${PICTURE_THIS_STORAGE_FULL_PATH}/${BUCKET_PROFILE_PATH}/${username}.jpg?t=${Date.now()}`
       }));
 
-      setProfiles((prev) => Array.from(new Set([...prev, ...profilesWithPics].map(p => p.username)))
-        .map(username => [...prev, ...profilesWithPics].find(p => p.username === username)!));
+      // Filter out profiles that don't have valid profile pictures
+      const validProfiles: Profile[] = [];
+      
+      for (const profile of profilesWithPics) {
+        try {
+          // Check if profile picture exists
+          const response = await fetch(profile.profileUrl, { method: 'HEAD' });
+          if (response.ok) {
+            validProfiles.push(profile);
+          } else {
+            console.log(`⏭️ Skipping ${profile.username} - no profile picture`);
+          }
+        } catch (err) {
+          console.log(`⏭️ Skipping ${profile.username} - profile picture check failed`);
+        }
+      }
+
+      setProfiles((prev) => Array.from(new Set([...prev, ...validProfiles].map(p => p.username)))
+        .map(username => [...prev, ...validProfiles].find(p => p.username === username)!));
       setLastKey(res.lastEvaluatedKey || null);
       setHasMore(!!res.lastEvaluatedKey);
     } catch (err) {
@@ -128,7 +145,8 @@ export default function BrowseProfiles() {
         gap: '1rem'
       }}>
         <div style={{ fontSize: '2rem' }}>📇</div>
-        <p>Loading profiles...</p>
+        <p>Loading profiles with photos...</p>
+        <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>Only showing users with profile pictures</p>
       </div>
     );
   }
@@ -137,7 +155,8 @@ export default function BrowseProfiles() {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <h1>📇 Browse Public Profiles</h1>
-        <p>No profiles found.</p>
+        <p>No profiles with photos found.</p>
+        <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>We only show users who have uploaded profile pictures.</p>
       </div>
     );
   }
