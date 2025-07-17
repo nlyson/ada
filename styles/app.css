@@ -3,7 +3,7 @@ body {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   height: 100%;
   width: 100%;
-  background-color: #bfbfbf; /* Optional: match your app background */
+  background-color: #efede4; /* Updated to warm beige */
 }
 
 main {
@@ -19,13 +19,14 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #8b7355; /* Updated to warm brown */
   cursor: pointer;
   transition: border-color 0.25s;
   color: white;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: #78716c; /* Updated to darker warm brown */
+  background-color: #78716c;
 }
 button:focus,
 button:focus-visible {
@@ -40,23 +41,39 @@ ul {
   display: flex;
   flex-direction: column;
   margin: 8px 0;
-  border: 1px solid black;
+  border: 1px solid #78716c; /* Updated to warm brown border */
   gap: 1px;
-  background-color: black;
+  background-color: #78716c; /* Updated gap color */
   border-radius: 8px;
   overflow: auto;
 }
 
 li {
-  background-color: white;
+  background-color: #f9f7f4; /* Updated to warm cream */
   padding: 8px;
 }
 
 li:hover {
-  background: #dadbf9;
+  background: #f5f2ed; /* Updated to slightly darker warm cream */
 }
 
 a {
   font-weight: 800;
   text-decoration: none;
+  color: #44403c; /* Ensure good contrast on warm backgrounds */
+}
+
+/* Additional warm theme enhancements */
+input, textarea, select {
+  background-color: #ffffff;
+  border: 1px solid #d6d3d1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: inherit;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #8b7355;
+  box-shadow: 0 0 0 2px rgba(139, 115, 85, 0.2);
 }
