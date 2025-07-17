@@ -16,9 +16,9 @@ interface ScavengerEntry {
   likes?: number;
   userHasLiked?: boolean;
   caption?: string;
-  score?: number;
-  huntId?: string;
-  promptId?: string;
+  score?: number;        // Add score field
+  huntId?: string;       // Add huntId field  
+  promptId?: string;     // Add promptId field
 }
 
 interface ScavengerBrowserProps {
@@ -26,47 +26,41 @@ interface ScavengerBrowserProps {
 }
 
 export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
-  // Create today's date in local timezone
+  // Create today's date in local timezone (avoiding UTC conversion)
   const today = new Date();
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
   const todayString = `${year}-${month}-${day}`;
-
+  
   const [selectedDate, setSelectedDate] = useState<string>(todayString);
   const [entries, setEntries] = useState<ScavengerEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [likeLoading, setLikeLoading] = useState<string>("");
+  
+  const entriesPerPage = 12; // Grid layout works well with 12
 
-  // Modal state
-  const [showModal, setShowModal] = useState(false);
-  const [modalData, setModalData] = useState({
-    feedback: '',
-    username: '',
-    prompt: '',
-    score: 0
-  });
-
-  const entriesPerPage = 12;
+  console.log('🔍 DEBUG: Today calculated as:', todayString);
+  console.log('🔍 DEBUG: Selected date:', selectedDate);
 
   const loadEntriesForDate = async (date: string) => {
     setLoading(true);
     setError("");
     setCurrentPage(1);
-
+    
     try {
       const res = await invokeLambdaIam({
         url: GET_SCAVENGER_ENTRIES_URL,
         method: "POST",
-        body: {
+        body: { 
           date: date,
           includeUserReactions: true,
           currentUser: user?.username
         },
       });
-
+      
       if (res && res.success && res.entries) {
         setEntries(res.entries);
       } else {
@@ -101,14 +95,15 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
       });
 
       if (res && res.success) {
-        setEntries(prevEntries =>
-          prevEntries.map(entry =>
-            entry.entryId === entryId
+        // Update the entry in our local state
+        setEntries(prevEntries => 
+          prevEntries.map(entry => 
+            entry.entryId === entryId 
               ? {
-                ...entry,
-                likes: res.newLikeCount || (entry.likes || 0) + (entry.userHasLiked ? -1 : 1),
-                userHasLiked: !entry.userHasLiked
-              }
+                  ...entry,
+                  likes: res.newLikeCount || (entry.likes || 0) + (entry.userHasLiked ? -1 : 1),
+                  userHasLiked: !entry.userHasLiked
+                }
               : entry
           )
         );
@@ -121,16 +116,6 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
     } finally {
       setLikeLoading("");
     }
-  };
-
-  const openFeedbackModal = (feedback: string, username: string, prompt: string, score: number) => {
-    setModalData({ feedback, username, prompt, score });
-    setShowModal(true);
-  };
-
-  const closeFeedbackModal = () => {
-    setShowModal(false);
-    setModalData({ feedback: '', username: '', prompt: '', score: 0 });
   };
 
   const getImageUrl = (imageKey: string): string => {
@@ -153,36 +138,12 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
     });
   };
 
-  const getDateOptions = () => {
-    const options = [];
-    const today = new Date();
-
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateString = `${year}-${month}-${day}`;
-
-      const label = i === 0 ? 'Today' :
-        i === 1 ? 'Yesterday' :
-          date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          });
-      options.push({ value: dateString, label });
-    }
-
-    return options;
-  };
-
+  // Load entries when component mounts or date changes
   useEffect(() => {
     loadEntriesForDate(selectedDate);
   }, [selectedDate]);
 
+  // Auto-dismiss error messages
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(""), 5000);
@@ -190,96 +151,110 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
     }
   }, [error]);
 
+  // Calculate pagination
   const totalPages = Math.ceil(entries.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
   const currentEntries = entries.slice(startIndex, startIndex + entriesPerPage);
 
+  // Get date options for the last 30 days (timezone-aware)
+  const getDateOptions = () => {
+    const options = [];
+    const today = new Date();
+    
+    // Create dates in local timezone to avoid UTC conversion issues
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      
+      // Format date as YYYY-MM-DD in local timezone
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+      
+      const label = i === 0 ? 'Today' : 
+                   i === 1 ? 'Yesterday' : 
+                   date.toLocaleDateString('en-US', { 
+                     month: 'short', 
+                     day: 'numeric',
+                     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone 
+                   });
+      options.push({ value: dateString, label });
+    }
+    
+    return options;
+  };
+
   return (
-    <div style={{
-      padding: '16px',
-      maxWidth: '1200px',
+    <div style={{ 
+      padding: '24px', 
+      maxWidth: '1200px', 
       margin: '0 auto',
       backgroundColor: '#efede4',
       minHeight: '100vh'
     }}>
-      <h1 style={{
-        fontSize: 'clamp(1.5rem, 4vw, 2rem)',
-        fontWeight: 'bold',
-        marginBottom: '8px',
-        color: '#333',
-        textAlign: 'center'
-      }}>
+      <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
         🔍 Scavenger Hunt Gallery
       </h1>
-      <p style={{
-        color: '#666',
-        marginBottom: '24px',
-        textAlign: 'center',
-        fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
-      }}>
+      <p style={{ color: '#666', marginBottom: '24px' }}>
         Browse scavenger hunt submissions from the community
       </p>
-
+      
       {/* Date Selector */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '16px', 
         marginBottom: '24px',
         padding: '16px',
         backgroundColor: '#ffffff',
         borderRadius: '8px',
         border: '1px solid #d6d3d1'
       }}>
-        <label style={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>
+        <label style={{ fontWeight: 'bold', color: '#333' }}>
           📅 Select Date:
         </label>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <select
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #d6d3d1',
-              borderRadius: '4px',
-              backgroundColor: '#ffffff',
-              fontSize: '1rem',
-              flex: '1',
-              minWidth: '200px'
-            }}
-          >
-            {getDateOptions().map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => loadEntriesForDate(selectedDate)}
-            disabled={loading}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: loading ? '#a8a29e' : '#8b7355',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '0.9rem',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {loading ? "🔄 Loading..." : "🔄 Refresh"}
-          </button>
-        </div>
+        <select
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #d6d3d1',
+            borderRadius: '4px',
+            backgroundColor: '#ffffff',
+            fontSize: '1rem',
+            minWidth: '150px'
+          }}
+        >
+          {getDateOptions().map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => loadEntriesForDate(selectedDate)}
+          disabled={loading}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: loading ? '#a8a29e' : '#8b7355',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: loading ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? "🔄 Loading..." : "🔄 Refresh"}
+        </button>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div style={{
-          padding: '12px',
-          marginBottom: '16px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #ef4444',
+        <div style={{ 
+          padding: '12px', 
+          marginBottom: '16px', 
+          backgroundColor: '#fef2f2', 
+          border: '1px solid #ef4444', 
           borderRadius: '4px',
           color: '#dc2626'
         }}>
@@ -288,10 +263,10 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
       )}
 
       {/* Stats Bar */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
         marginBottom: '24px',
         padding: '16px',
         backgroundColor: '#f9f7f4',
@@ -299,7 +274,7 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
         border: '1px solid #d6d3d1'
       }}>
         <div>
-          <h3 style={{ margin: 0, color: '#333', fontSize: 'clamp(1rem, 3vw, 1.2rem)' }}>
+          <h3 style={{ margin: 0, color: '#333' }}>
             {formatDate(selectedDate)}
           </h3>
           <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
@@ -307,16 +282,12 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
           </p>
         </div>
         {entries.length > 0 && (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px'
-          }}>
+          <div style={{ textAlign: 'right' }}>
             <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
               {new Set(entries.map(e => e.username)).size} unique participants
             </p>
             <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-              Avg score: {Math.round(entries.reduce((sum, e) => sum + (e.score || 0), 0) / entries.length) || 0}/100
+              {entries.reduce((sum, e) => sum + (e.likes || 0), 0)} total likes
             </p>
           </div>
         )}
@@ -330,10 +301,10 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
         </div>
       ) : currentEntries.length > 0 ? (
         <>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 'clamp(12px, 3vw, 20px)',
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+            gap: '20px',
             marginBottom: '32px'
           }}>
             {currentEntries.map((entry) => (
@@ -392,16 +363,16 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
                 {/* Content */}
                 <div style={{ padding: '16px' }}>
                   {/* User info and score */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
                     alignItems: 'center',
                     marginBottom: '8px'
                   }}>
                     <div>
-                      <h4 style={{
-                        margin: 0,
-                        fontSize: '1rem',
+                      <h4 style={{ 
+                        margin: 0, 
+                        fontSize: '1rem', 
                         fontWeight: 'bold',
                         color: '#333'
                       }}>
@@ -417,7 +388,7 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
                         </div>
                       )}
                     </div>
-
+                    
                     {/* Like button */}
                     <button
                       onClick={() => handleLikeEntry(entry.entryId)}
@@ -455,9 +426,9 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
                     marginBottom: '8px',
                     border: '1px solid #d6d3d1'
                   }}>
-                    <p style={{
-                      margin: 0,
-                      fontSize: '0.85rem',
+                    <p style={{ 
+                      margin: 0, 
+                      fontSize: '0.85rem', 
                       color: '#666',
                       fontStyle: 'italic'
                     }}>
@@ -465,45 +436,31 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
                     </p>
                   </div>
 
-                  {/* AI Feedback (clickable) */}
+                  {/* AI Feedback (shortened) */}
                   {entry.caption && (
-                    <div
-                      style={{
-                        backgroundColor: '#fef7ed',
-                        padding: '8px',
-                        borderRadius: '6px',
-                        border: '1px solid #fb923c',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onClick={() => openFeedbackModal(
-                        entry.caption || '',
-                        entry.username,
-                        entry.prompt,
-                        entry.score || 0
-                      )}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fed7aa'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fef7ed'}
-                    >
-                      <p style={{
-                        margin: 0,
-                        fontSize: '0.8rem',
+                    <div style={{
+                      backgroundColor: '#fef7ed',
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: '1px solid #fb923c'
+                    }}>
+                      <p style={{ 
+                        margin: 0, 
+                        fontSize: '0.8rem', 
                         color: '#c2410c',
                         fontWeight: 'bold',
                         marginBottom: '4px'
                       }}>
-                        🤖 AI Feedback: <span style={{ fontSize: '0.7rem', fontWeight: 'normal' }}>
-                          (click to read full)
-                        </span>
+                        🤖 AI Feedback:
                       </p>
-                      <p style={{
-                        margin: 0,
-                        fontSize: '0.8rem',
+                      <p style={{ 
+                        margin: 0, 
+                        fontSize: '0.8rem', 
                         color: '#92400e',
                         lineHeight: '1.3'
                       }}>
-                        {entry.caption.length > 120 ?
-                          `${entry.caption.substring(0, 120)}...` :
+                        {entry.caption.length > 120 ? 
+                          `${entry.caption.substring(0, 120)}...` : 
                           entry.caption
                         }
                       </p>
@@ -516,66 +473,53 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '16px',
-              marginTop: '32px'
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              gap: '16px', 
+              marginTop: '32px' 
             }}>
-              <div style={{
-                display: 'flex',
-                gap: '8px',
-                flexWrap: 'wrap',
-                justifyContent: 'center'
-              }}>
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: currentPage === 1 ? '#f5f2ed' : '#8b7355',
-                    color: currentPage === 1 ? '#a8a29e' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  ← Previous
-                </button>
-
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage >= totalPages}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: currentPage >= totalPages ? '#f5f2ed' : '#8b7355',
-                    color: currentPage >= totalPages ? '#a8a29e' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  Next →
-                </button>
-              </div>
-
-              <span style={{
-                color: '#666',
-                fontSize: '0.9rem',
-                textAlign: 'center'
-              }}>
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: currentPage === 1 ? '#f5f2ed' : '#8b7355',
+                  color: currentPage === 1 ? '#a8a29e' : 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                ← Previous
+              </button>
+              
+              <span style={{ color: '#666', fontSize: '0.9rem' }}>
                 Page {currentPage} of {totalPages} ({entries.length} total entries)
               </span>
+              
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage >= totalPages}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: currentPage >= totalPages ? '#f5f2ed' : '#8b7355',
+                  color: currentPage >= totalPages ? '#a8a29e' : 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Next →
+              </button>
             </div>
           )}
         </>
       ) : (
-        <div style={{
-          textAlign: 'center',
-          padding: '40px',
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px', 
           color: '#666',
           backgroundColor: '#f9f7f4',
           borderRadius: '8px',
@@ -587,110 +531,6 @@ export default function ScavengerHuntBrowser({ user }: ScavengerBrowserProps) {
           <p style={{ fontSize: '0.9rem', marginTop: '16px' }}>
             Try selecting a different date or check back later!
           </p>
-        </div>
-      )}
-
-      {/* Feedback Modal */}
-      {showModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '600px',
-            width: '100%',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-          }}>
-            {/* Header */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              marginBottom: '16px'
-            }}>
-              <div>
-                <h3 style={{
-                  margin: 0,
-                  fontSize: '1.2rem',
-                  fontWeight: 'bold',
-                  color: '#333'
-                }}>
-                  🤖 AI Feedback for @{modalData.username}
-                </h3>
-                <p style={{
-                  margin: '4px 0 0 0',
-                  fontSize: '0.9rem',
-                  color: '#666'
-                }}>
-                  {modalData.prompt} • Score: {modalData.score}/100
-                </p>
-              </div>
-              <button
-                onClick={closeFeedbackModal}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  color: '#666',
-                  padding: '0',
-                  lineHeight: 1
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Feedback Content */}
-            <div style={{
-              backgroundColor: '#fef7ed',
-              padding: '16px',
-              borderRadius: '8px',
-              border: '1px solid #fb923c',
-              marginBottom: '20px'
-            }}>
-              <p style={{
-                margin: 0,
-                fontSize: '0.9rem',
-                color: '#92400e',
-                lineHeight: '1.5'
-              }}>
-                {modalData.feedback}
-              </p>
-            </div>
-
-            {/* Close Button */}
-            <div style={{ textAlign: 'center' }}>
-              <button
-                onClick={closeFeedbackModal}
-                style={{
-                  padding: '8px 24px',
-                  backgroundColor: '#8b7355',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
