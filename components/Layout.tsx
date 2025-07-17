@@ -65,8 +65,8 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
       title: "Explore",
       items: [
         { href: "/challenges", label: "Challenge Archive" },
-        { href: "/scavenger_browser", label: "🔍 Scavenger Gallery ✨ NEW" },
-        { href: "/challenge_browser", label: "🏆 Challenge Gallery ✨ NEW" },
+        { href: "/scavenger_browser", label: "🔍 Scavenger Gallery" },
+        { href: "/challenge-gallery", label: "🏆 Challenge Gallery ✨ NEW" },
         { href: "/scoreboard", label: "High Scores" },
         { href: "/browse_profiles", label: "Browse Profiles" },
       ]
@@ -127,6 +127,7 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
           display: "flex",
           flexDirection: "column",
           animation: "fadeIn 0.2s ease-out",
+          overflowY: "auto"
         }}>
           {/* Header */}
           <div style={{
