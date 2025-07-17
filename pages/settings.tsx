@@ -270,7 +270,7 @@ const Settings: React.FC<AppProps> = ({ user }) => {
               borderRadius: 8,
               border: "1px solid #22c55e"
             }}>
-              <h3 style={{ margin: "0 0 8px 0" }}>✅ You're a Premium Member!</h3>
+              <h3 style={{ margin: "0 0 8px 0" }}>✅ You&apos;re a Premium Member!</h3>
               <p style={{ margin: 0 }}>Thank you for supporting our community. Enjoy all premium features!</p>
             </div>
           )}
