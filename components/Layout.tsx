@@ -45,7 +45,7 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
       ]
     },
     {
-      title: "Create", 
+      title: "Create",
       items: [
         { href: "/featured_photos", label: "Featured Photos" },
         { href: "/challenge", label: "Weekly Challenge" },
@@ -82,11 +82,11 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
   ];
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#efede4" }}>
+    <div style={{ minHeight: "100vh", color: "#6b7280", backgroundColor: "#efede4" }}>
       {/* Header */}
       <header style={{
         padding: "1rem",
-        backgroundColor: "#44403c", 
+        backgroundColor: "#44403c",
         color: "#fff",
         display: "flex",
         justifyContent: "space-between",
@@ -98,7 +98,7 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
           style={{
             fontSize: "1.5rem",
             background: "none",
-            border: "none", 
+            border: "none",
             color: "white",
             cursor: "pointer",
             padding: "0.5rem",
@@ -119,10 +119,10 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
         <div style={{
           position: "fixed",
           top: 0,
-          left: 0, 
+          left: 0,
           width: "100vw",
           height: "100vh",
-          backgroundColor: "#8b7355",
+          backgroundColor: "#efede4",
           zIndex: 1000,
           display: "flex",
           flexDirection: "column",
@@ -139,8 +139,8 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
           }}>
             <h1 style={{
               fontSize: "1.5rem",
-              fontWeight: "700", 
-              color: "white",
+              fontWeight: "700",
+              color: "#6b7280",
               margin: 0,
               letterSpacing: "-0.025em"
             }}>
@@ -177,9 +177,8 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
           }}>
             {/* User Search */}
             <div style={{ marginBottom: "2rem" }}>
-              <h3 style={{ 
-                color: "white", 
-                marginBottom: "1rem", 
+              <h3 style={{
+                marginBottom: "1rem",
                 fontSize: "1rem",
                 fontWeight: "500",
                 textTransform: "uppercase",
@@ -201,7 +200,6 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
                 <div key={sectionIndex}>
                   {/* Section Header */}
                   <h4 style={{
-                    color: "rgba(255,255,255,0.7)",
                     fontSize: "0.875rem",
                     fontWeight: "600",
                     textTransform: "uppercase",
@@ -211,19 +209,19 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
                   }}>
                     {section.title}
                   </h4>
-                  
+
                   {/* Section Items */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                     {section.items.map((item, itemIndex) => {
                       if (item.condition === false) return null;
-                      
+
                       return (
                         <Link
                           key={itemIndex}
                           href={item.href}
                           onClick={handleMenuClick}
                           style={{
-                            color: "white",
+                            color: "#6b7280",
                             textDecoration: "none",
                             fontSize: "1.125rem",
                             fontWeight: "400",
