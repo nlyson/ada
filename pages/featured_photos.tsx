@@ -24,68 +24,155 @@ const FeaturedPhotos: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
   const [currentUsername, setCurrentUsername] = useState<string>("");
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
   const [viewerAccountTier, setViewerAccountTier] = useState("free");
   const [showComments, setShowComments] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
   const cardRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const fetchPhotos = async () => {
-      try {
-        const result = await invokeLambdaIam({
-          url: FEATURED_LAMBDA_URL,
-          method: "POST",
-          body: {},
-        });
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000; // 1 second
 
-        if (result.featuredPhotos) {
-          setPhotos(result.featuredPhotos);
-        } else {
-          throw new Error(result.error || "Unknown error");
-        }
-      } catch (err: any) {
-        console.error("Error fetching featured photos:", err);
-        setError("Failed to load featured photos. Try again later.");
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const fetchPhotosWithRetry = async (attempt: number = 0): Promise<void> => {
+    try {
+      // Only clear error on the first attempt, not on retries
+      if (attempt === 0) {
+        setError("");
+      }
+      
+      const result = await invokeLambdaIam({
+        url: FEATURED_LAMBDA_URL,
+        method: "POST",
+        body: {},
+      });
+
+      if (result.featuredPhotos && result.featuredPhotos.length > 0) {
+        setPhotos(result.featuredPhotos);
+        setRetryCount(0);
+        return;
+      } else if (result.featuredPhotos && result.featuredPhotos.length === 0) {
+        // Empty array is a valid response, don't retry
+        setPhotos([]);
+        setRetryCount(0);
+        return;
+      } else {
+        throw new Error(result.error || "No photos returned");
+      }
+    } catch (err: any) {
+      console.error(`Error fetching featured photos (attempt ${attempt + 1}):`, err);
+      
+      if (attempt < MAX_RETRIES) {
+        setRetryCount(attempt + 1);
+        // DON'T set error during retries - keep loading state active
+        
+        await sleep(RETRY_DELAY * (attempt + 1)); // Exponential backoff
+        return fetchPhotosWithRetry(attempt + 1);
+      } else {
+        // Only set error after all retries have failed
+        setError("Failed to load featured photos. Please try refreshing the page.");
+        throw err;
+      }
+    }
+  };
+
+  const fetchUserDataWithRetry = async (attempt: number = 0): Promise<void> => {
+    try {
+      const user = await getCurrentUser();
+      setCurrentUsername(user.username);
+
+      const res = await invokeLambdaIam({
+        url: GET_PROFILE_URL,
+        method: "POST",
+        body: { username: user.username },
+      });
+
+      setViewerAccountTier(res.accountTier || "free");
+    } catch (err) {
+      console.error(`Failed to get current user or tier (attempt ${attempt + 1}):`, err);
+      
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY * (attempt + 1));
+        return fetchUserDataWithRetry(attempt + 1);
+      } else {
+        console.error("Failed to fetch user data after retries");
+        // Don't throw here as this is not critical for the main functionality
+      }
+    }
+  };
+
+  useEffect(() => {
+    const initializeData = async () => {
+      setLoading(true);
+      setError("");
+      
+      try {
+        // Fetch user data and photos in parallel
+        await Promise.all([
+          fetchUserDataWithRetry(),
+          fetchPhotosWithRetry()
+        ]);
+      } catch (err) {
+        console.error("Failed to initialize data:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    const fetchUsername = async () => {
+    initializeData();
+  }, []);
+
+  const handleImageError = (imageUrl: string) => {
+    setImageLoadErrors(prev => new Set(prev).add(imageUrl));
+    
+    // Retry loading the image after a delay
+    setTimeout(() => {
+      setImageLoadErrors(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageUrl);
+        return newSet;
+      });
+    }, 2000);
+  };
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError("");
+    setRetryCount(0);
+    setImageLoadErrors(new Set());
+    
+    const initializeData = async () => {
       try {
-        const user = await getCurrentUser();
-        setCurrentUsername(user.username);
-
-        const res = await invokeLambdaIam({
-          url: GET_PROFILE_URL,
-          method: "POST",
-          body: { username: user.username },
-        });
-
-        setViewerAccountTier(res.accountTier || "free");
+        await Promise.all([
+          fetchUserDataWithRetry(),
+          fetchPhotosWithRetry()
+        ]);
       } catch (err) {
-        console.error("Failed to get current user or tier", err);
+        console.error("Retry failed:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchUsername();
-    fetchPhotos();
-  }, []);
+    initializeData();
+  };
 
   const goToNext = () => {
     if (currentIndex < photos.length - 1) {
       setCurrentIndex(currentIndex + 1);
-      setShowComments(false); // Hide comments when navigating
+      setShowComments(false);
     }
   };
 
   const goToPrevious = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
-      setShowComments(false); // Hide comments when navigating
+      setShowComments(false);
     }
   };
 
@@ -144,6 +231,11 @@ const FeaturedPhotos: React.FC = () => {
       }}>
         <div style={{ fontSize: '2rem' }}>⭐</div>
         <p style={{ color: 'white' }}>Loading featured photos...</p>
+        {retryCount > 0 && (
+          <p style={{ color: 'white', fontSize: '0.9rem', opacity: 0.8 }}>
+            Retry attempt {retryCount}/{MAX_RETRIES}
+          </p>
+        )}
       </div>
     );
   }
@@ -157,10 +249,30 @@ const FeaturedPhotos: React.FC = () => {
         minHeight: '100vh',
         background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
         flexDirection: 'column',
-        gap: '1rem'
+        gap: '1rem',
+        padding: '2rem'
       }}>
         <div style={{ fontSize: '2rem' }}>❌</div>
-        <p style={{ color: 'white' }}>{error}</p>
+        <p style={{ color: 'white', textAlign: 'center' }}>{error}</p>
+        <button
+          onClick={handleRetry}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: 'white',
+            color: '#ff6b6b',
+            border: 'none',
+            borderRadius: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          🔄 Try Again
+        </button>
       </div>
     );
   }
@@ -178,6 +290,25 @@ const FeaturedPhotos: React.FC = () => {
       }}>
         <div style={{ fontSize: '2rem' }}>📸</div>
         <p style={{ color: 'white' }}>No featured photos available.</p>
+        <button
+          onClick={handleRetry}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: 'white',
+            color: '#ff6b6b',
+            border: 'none',
+            borderRadius: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          🔄 Refresh
+        </button>
       </div>
     );
   }
@@ -273,17 +404,35 @@ const FeaturedPhotos: React.FC = () => {
             position: 'relative',
             overflow: 'hidden'
           }}>
-            <img
-              src={currentPhoto.photoUrl}
-              alt={`Photo by ${currentPhoto.username}`}
-              onClick={() => setSelectedPhotoUrl(currentPhoto.photoUrl)}
-              style={{
+            {imageLoadErrors.has(currentPhoto.photoUrl) ? (
+              <div style={{
                 width: '100%',
                 height: '100%',
-                objectFit: 'cover',
-                cursor: 'zoom-in'
-              }}
-            />
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f3f4f6',
+                color: '#6b7280',
+                flexDirection: 'column',
+                gap: '0.5rem'
+              }}>
+                <div style={{ fontSize: '2rem' }}>📷</div>
+                <div>Image loading...</div>
+              </div>
+            ) : (
+              <img
+                src={currentPhoto.photoUrl}
+                alt={`Photo by ${currentPhoto.username}`}
+                onClick={() => setSelectedPhotoUrl(currentPhoto.photoUrl)}
+                onError={() => handleImageError(currentPhoto.photoUrl)}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  cursor: 'zoom-in'
+                }}
+              />
+            )}
             
             {/* Gradient overlay */}
             <div style={{
