@@ -225,7 +225,7 @@ const FeaturedPhotos: React.FC = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+        background: 'linear-gradient(135deg, #6b7280 0%, #6b7280 100%)',
         flexDirection: 'column',
         gap: '1rem'
       }}>
@@ -247,7 +247,7 @@ const FeaturedPhotos: React.FC = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+        background: 'linear-gradient(135deg, #6b7280 0%, #6b7280 100%)',
         flexDirection: 'column',
         gap: '1rem',
         padding: '2rem'
@@ -284,7 +284,7 @@ const FeaturedPhotos: React.FC = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+        background: 'linear-gradient(135deg, #6b7280 0%, #6b7280 100%)',
         flexDirection: 'column',
         gap: '1rem'
       }}>
@@ -319,7 +319,7 @@ const FeaturedPhotos: React.FC = () => {
   return (
     <div style={{ 
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+      background: 'linear-gradient(135deg, #6b7280 0%, #6b7280 100%)',
       padding: '1rem',
       display: 'flex',
       flexDirection: 'column',
@@ -537,7 +537,7 @@ const FeaturedPhotos: React.FC = () => {
                 style={{
                   flex: 1,
                   padding: '0.75rem',
-                  backgroundColor: showComments ? '#ef4444' : '#10b981',
+                  backgroundColor: showComments ? '#6b7280' : '#10b981',
                   color: 'white',
                   border: 'none',
                   borderRadius: '12px',

@@ -11,16 +11,16 @@ import Layout from "@/components/Layout";
 import { UnreadProvider } from "@/context/UnreadContext";
 import { useEffect, useState } from "react";
 import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
-import "@aws-amplify/ui-react/styles.css";
 import { motion } from "framer-motion";
 import Image from "next/image";
-
-
+import { deleteUser } from "aws-amplify/auth";
 
 const CREATE_USER_URL =
   "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/create_user_with_email";
 const GET_PROFILE_URL =
   "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/user_profile";
+const DELETE_ACCOUNT_URL =
+  "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/delete_account";
 
 function AuthenticatedApp({
   Component,
@@ -34,10 +34,10 @@ function AuthenticatedApp({
 }) {
   const [userRole, setUserRole] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const showWelcome = true;
 
-
-    console.log('🔧 Amplify Configuration:', Amplify.getConfig());
+  console.log('🔧 Amplify Configuration:', Amplify.getConfig());
 
   useEffect(() => {
     console.log('🔧 DEPLOYED in _app Amplify Config:', Amplify.getConfig());
@@ -88,6 +88,89 @@ function AuthenticatedApp({
     }
   }, [user]);
 
+  const handleDeleteAccount = async () => {
+    // First confirmation
+    const firstConfirm = window.confirm(
+      "⚠️ WARNING: This will permanently delete your account and all your data.\n\n" +
+      "This includes:\n" +
+      "• All your photo submissions\n" +
+      "• Your profile and progress\n" +
+      "• All comments and likes\n" +
+      "• Challenge history\n\n" +
+      "This action CANNOT be undone.\n\n" +
+      "Are you sure you want to continue?"
+    );
+
+    if (!firstConfirm) return;
+
+    // Second confirmation with typing requirement
+    const confirmText = prompt(
+      "To confirm account deletion, please type: DELETE MY ACCOUNT\n\n" +
+      "Type exactly (case sensitive):"
+    );
+
+    if (confirmText !== "DELETE MY ACCOUNT") {
+      if (confirmText !== null) { // User didn't cancel
+        alert("❌ Text didn't match exactly. Account deletion cancelled for your safety.");
+      }
+      return;
+    }
+
+    // Final confirmation
+    const finalConfirm = window.confirm(
+      "🚨 FINAL WARNING 🚨\n\n" +
+      "You typed the confirmation text correctly.\n\n" +
+      "Clicking OK will IMMEDIATELY and PERMANENTLY delete your account.\n\n" +
+      "Are you absolutely certain you want to delete your Photo Mentor account?"
+    );
+
+    if (!finalConfirm) return;
+
+    setIsDeleting(true);
+
+    try {
+      // Step 1: Delete user data from DynamoDB
+      console.log("🗑️ Deleting user data from database...");
+      await invokeLambdaIam({
+        url: DELETE_ACCOUNT_URL,
+        method: "POST",
+        body: { 
+          username: user?.username,
+          email: user?.signInDetails?.loginId
+        },
+      });
+      console.log("✅ Database deletion completed");
+
+      // Step 2: Delete from Cognito
+      console.log("👤 About to delete Cognito user...");
+      await deleteUser();
+      console.log("✅ Cognito user deletion completed");
+
+      // Show success message
+      alert("✅ Your account has been successfully deleted. You will now be signed out.");
+
+      // Note: deleteUser() automatically signs out the user
+
+    } catch (error: any) {
+      console.error("❌ Error deleting account:", error);
+      
+      // Handle specific Cognito errors
+      if (error.name === 'NotAuthorizedException') {
+        alert("❌ Session expired. Please sign out and try again.");
+        safeSignOut();
+      } else if (error.name === 'UserNotFoundException') {
+        alert("⚠️ Account not found in authentication system, but database data was deleted.");
+        safeSignOut();
+      } else {
+        alert(
+          "❌ There was an error deleting your account. Please try again or contact support at jamacpantel@gmail.com"
+        );
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const safeSignOut = () => {
     if (typeof signOut === "function") {
       signOut();
@@ -100,22 +183,13 @@ function AuthenticatedApp({
 
   return (
     <UnreadProvider user={user}>
-      <Layout user={user} signOut={safeSignOut} userRole={userRole}>
-        {showWelcome && (
-          <div style={{
-            backgroundColor: "#e0f7fa",
-            color: "#006064",
-            padding: "1rem",
-            borderRadius: "0.5rem",
-            margin: "1rem 0",
-            border: "1px solid #4dd0e1",
-            textAlign: "center"
-          }}>
-            🎉 Thanks for being an early beta tester! As a token of our appreciation, you have been upgraded to a <strong>free premium membership</strong> for helping us shape Photo Mentor during its early days.
-            <br /><br />
-            Your feedback and support mean the world to us. ❤️ Enjoy unlimited challenges, detailed critiques, and all the tools we are building just for you.
-          </div>
-        )}
+      <Layout 
+        user={user} 
+        signOut={safeSignOut} 
+        userRole={userRole}
+        onDeleteAccount={handleDeleteAccount}
+        isDeleting={isDeleting}
+      >
         <Component signOut={safeSignOut} user={user} />
       </Layout>
     </UnreadProvider>
@@ -196,4 +270,3 @@ export default function App({ Component, pageProps, router }: AppProps) {
     </Authenticator>
   );
 }
-
