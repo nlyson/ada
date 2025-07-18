@@ -169,7 +169,7 @@ export default function BrowseProfiles() {
   return (
     <div style={{ 
       minHeight: '100vh',
-      backgroundColor: '#B76E79', // Changed to match your app's pink color
+      backgroundColor: '#6b7280', // Changed to match your app's pink color
       padding: '1rem',
       display: 'flex',
       flexDirection: 'column',
@@ -286,7 +286,7 @@ export default function BrowseProfiles() {
             <Link 
               href={`/users/${currentProfile.username}`}
               style={{
-                backgroundColor: '#B76E79', // Changed to match your app's pink color
+                backgroundColor: '#6b7280', // Changed to match your app's pink color
                 color: 'white',
                 padding: '0.75rem 1.5rem',
                 borderRadius: '12px',

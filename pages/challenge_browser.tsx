@@ -4,6 +4,7 @@ import { invokeLambdaIam } from "@/utils/invokeLambdaIam";
 // API endpoints
 const GET_CHALLENGE_ENTRIES_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_challenge_entries_by_date";
 const REACT_TO_CHALLENGE_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/react_to_challenge_entry";
+const GET_CHALLENGES_URL = "https://x69ndosila.execute-api.us-east-1.amazonaws.com/prod/get_challenges";
 
 // Types
 interface ChallengeEntry {
@@ -21,14 +22,25 @@ interface ChallengeEntry {
   feedback?: string;
 }
 
+interface Challenge {
+  challengeId: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  rubric: string;
+}
+
 interface ChallengeBrowserProps {
   user?: { username: string };
 }
 
 export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) {
-  const [selectedChallenge, setSelectedChallenge] = useState<string>("weekly_08");
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [selectedChallenge, setSelectedChallenge] = useState<string>("");
   const [entries, setEntries] = useState<ChallengeEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [challengesLoading, setChallengesLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [likeLoading, setLikeLoading] = useState<string>("");
@@ -44,7 +56,42 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
 
   const entriesPerPage = 12;
 
+  // Load challenges from database
+  const loadChallenges = async () => {
+    setChallengesLoading(true);
+    try {
+      const res = await invokeLambdaIam({
+        url: GET_CHALLENGES_URL,
+        method: "POST",
+        body: {},
+      });
+
+      if (res && res.success && res.challenges) {
+        // Sort challenges by start date (most recent first)
+        const sortedChallenges = res.challenges.sort((a: Challenge, b: Challenge) => {
+          return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+        });
+        
+        setChallenges(sortedChallenges);
+        
+        // Set the most recent challenge as default
+        if (sortedChallenges.length > 0) {
+          setSelectedChallenge(sortedChallenges[0].challengeId);
+        }
+      } else {
+        setError("Failed to load challenges.");
+      }
+    } catch (err: any) {
+      console.error("Failed to load challenges", err);
+      setError("Failed to load challenges.");
+    } finally {
+      setChallengesLoading(false);
+    }
+  };
+
   const loadEntriesForChallenge = async (challengeId: string) => {
+    if (!challengeId) return;
+    
     setLoading(true);
     setError("");
     setCurrentPage(1);
@@ -137,28 +184,60 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
     });
   };
 
-  const getChallengeOptions = () => {
-    return [
-      { value: "weekly_08", label: "🏃‍♂️ Challenge #8: Motion & Movement" },
-      { value: "weekly_07", label: "🌅 Challenge #7: Golden Hour" },
-      { value: "weekly_06", label: "🌑 Challenge #6: Silhouettes & Shadows" },
-      { value: "weekly_05", label: "🌸 Challenge #5: Patterns in Nature" },
-      { value: "weekly_04", label: "💡 Challenge #4: Natural Lighting" },
-      { value: "weekly_03", label: "🎨 Challenge #3: Creative Subjects" },
-      { value: "weekly_02", label: "🏠 Challenge #2: Home Life" },
-      { value: "weekly_01", label: "✈️ Challenge #1: Travel Photography" },
-      { value: "manual-feedback", label: "🤖 Manual Feedback Sessions" },
-    ];
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const getCurrentChallengeTitle = () => {
-    const options = getChallengeOptions();
-    const current = options.find(opt => opt.value === selectedChallenge);
-    return current ? current.label : "Weekly Challenge";
+    const current = challenges.find(challenge => challenge.challengeId === selectedChallenge);
+    return current ? current.title : "Weekly Challenge";
   };
 
+  const getCurrentChallengeDescription = () => {
+    const current = challenges.find(challenge => challenge.challengeId === selectedChallenge);
+    return current ? current.description : "";
+  };
+
+  const getCurrentChallengeDates = () => {
+    const current = challenges.find(challenge => challenge.challengeId === selectedChallenge);
+    if (!current) return "";
+    return `${formatDate(current.startDate)} - ${formatDate(current.endDate)}`;
+  };
+
+  const getChallengeEmoji = (challengeId: string): string => {
+    const emojiMap: { [key: string]: string } = {
+      'weekly_01': '🌊',
+      'weekly_02': '🌆',
+      'weekly_03': '📐',
+      'weekly_04': '🌅',
+      'weekly_05': '🍃',
+      'weekly_06': '🌑',
+      'weekly_07': '💡',
+      'weekly_08': '💧',
+      'weekly_09': '🏗️',
+      'weekly_past_01': '🔍',
+      'weekly_past_02': '🌑',
+      'weekly_past_03': '😊',
+      'manual-feedback': '🤖'
+    };
+    
+    return emojiMap[challengeId] || '🏆';
+  };
+
+  // Load challenges on component mount
   useEffect(() => {
-    loadEntriesForChallenge(selectedChallenge);
+    loadChallenges();
+  }, []);
+
+  // Load entries when selected challenge changes
+  useEffect(() => {
+    if (selectedChallenge) {
+      loadEntriesForChallenge(selectedChallenge);
+    }
   }, [selectedChallenge]);
 
   useEffect(() => {
@@ -171,6 +250,22 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
   const totalPages = Math.ceil(entries.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
   const currentEntries = entries.slice(startIndex, startIndex + entriesPerPage);
+
+  if (challengesLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '50vh',
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
+        <div style={{ fontSize: '2rem' }}>🏆</div>
+        <p>Loading challenges...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -226,22 +321,27 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
               minWidth: '250px'
             }}
           >
-            {getChallengeOptions().map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
+            {challenges.length === 0 ? (
+              <option value="">No challenges available</option>
+            ) : (
+              challenges.map(challenge => (
+                <option key={challenge.challengeId} value={challenge.challengeId}>
+                  {getChallengeEmoji(challenge.challengeId)} {challenge.title}
+                </option>
+              ))
+            )}
+            <option value="manual-feedback">🤖 Manual Feedback Sessions</option>
           </select>
           <button
             onClick={() => loadEntriesForChallenge(selectedChallenge)}
-            disabled={loading}
+            disabled={loading || !selectedChallenge}
             style={{
               padding: '8px 16px',
-              backgroundColor: loading ? '#a8a29e' : '#8b7355',
+              backgroundColor: (loading || !selectedChallenge) ? '#a8a29e' : '#8b7355',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: (loading || !selectedChallenge) ? 'not-allowed' : 'pointer',
               fontSize: '0.9rem',
               whiteSpace: 'nowrap'
             }}
@@ -265,46 +365,126 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
         </div>
       )}
 
-      {/* Stats Bar */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        marginBottom: '24px',
-        padding: '16px',
-        backgroundColor: '#f9f7f4',
-        borderRadius: '8px',
-        border: '1px solid #d6d3d1'
-      }}>
-        <div>
-          <h3 style={{ margin: 0, color: '#333', fontSize: 'clamp(1rem, 3vw, 1.2rem)' }}>
-            {getCurrentChallengeTitle()}
-          </h3>
-          <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-            {entries.length} submissions found
-          </p>
-        </div>
-        {entries.length > 0 && (
+      {/* Challenge Info */}
+      {selectedChallenge && selectedChallenge !== "manual-feedback" && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          marginBottom: '24px',
+          padding: '16px',
+          backgroundColor: '#f0f9ff',
+          borderRadius: '8px',
+          border: '1px solid #0ea5e9'
+        }}>
+          <div>
+            <h3 style={{ 
+              margin: 0, 
+              color: '#0369a1', 
+              fontSize: 'clamp(1rem, 3vw, 1.2rem)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              {getChallengeEmoji(selectedChallenge)} {getCurrentChallengeTitle()}
+            </h3>
+            <p style={{ 
+              margin: '4px 0 0 0', 
+              color: '#0284c7', 
+              fontSize: '0.85rem',
+              fontWeight: '500'
+            }}>
+              {getCurrentChallengeDates()}
+            </p>
+          </div>
+          
+          {getCurrentChallengeDescription() && (
+            <p style={{
+              margin: 0,
+              color: '#0369a1',
+              fontSize: '0.9rem',
+              lineHeight: '1.4',
+              fontStyle: 'italic'
+            }}>
+              {getCurrentChallengeDescription()}
+            </p>
+          )}
+          
           <div style={{
             display: 'flex',
             flexDirection: 'column',
             gap: '4px'
           }}>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-              {new Set(entries.map(e => e.username)).size} unique participants
+            <p style={{ margin: 0, color: '#0284c7', fontSize: '0.9rem' }}>
+              📊 {entries.length} submissions found
             </p>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-              Avg score: {Math.round(entries.reduce((sum, e) => sum + (e.score || 0), 0) / entries.length) || 0}/100
+            {entries.length > 0 && (
+              <>
+                <p style={{ margin: 0, color: '#0284c7', fontSize: '0.9rem' }}>
+                  👥 {new Set(entries.map(e => e.username)).size} unique participants
+                </p>
+                <p style={{ margin: 0, color: '#0284c7', fontSize: '0.9rem' }}>
+                  ⭐ Avg score: {Math.round(entries.reduce((sum, e) => sum + (e.score || 0), 0) / entries.length) || 0}/100
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Manual Feedback Info */}
+      {selectedChallenge === "manual-feedback" && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          marginBottom: '24px',
+          padding: '16px',
+          backgroundColor: '#fef7ed',
+          borderRadius: '8px',
+          border: '1px solid #fb923c'
+        }}>
+          <div>
+            <h3 style={{ margin: 0, color: '#c2410c', fontSize: 'clamp(1rem, 3vw, 1.2rem)' }}>
+              🤖 Manual Feedback Sessions
+            </h3>
+            <p style={{ 
+              margin: '4px 0 0 0', 
+              color: '#92400e', 
+              fontSize: '0.9rem',
+              lineHeight: '1.4'
+            }}>
+              Photos submitted for personalized AI critique and scoring outside of weekly challenges.
             </p>
           </div>
-        )}
-      </div>
+          
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}>
+            <p style={{ margin: 0, color: '#92400e', fontSize: '0.9rem' }}>
+              📊 {entries.length} feedback sessions found
+            </p>
+            {entries.length > 0 && (
+              <>
+                <p style={{ margin: 0, color: '#92400e', fontSize: '0.9rem' }}>
+                  👥 {new Set(entries.map(e => e.username)).size} unique participants
+                </p>
+                <p style={{ margin: 0, color: '#92400e', fontSize: '0.9rem' }}>
+                  ⭐ Avg score: {Math.round(entries.reduce((sum, e) => sum + (e.score || 0), 0) / entries.length) || 0}/100
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Entries Grid */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
           <div style={{ fontSize: '2rem', marginBottom: '16px' }}>🔄</div>
-          Loading weekly challenge entries...
+          Loading challenge entries...
         </div>
       ) : currentEntries.length > 0 ? (
         <>
@@ -338,7 +518,7 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                 <div style={{ position: 'relative', paddingBottom: '75%', overflow: 'hidden' }}>
                   <img
                     src={getImageUrl(entry.imageKey)}
-                    alt={`Weekly challenge entry by ${entry.username}`}
+                    alt={`Challenge entry by ${entry.username}`}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -439,7 +619,7 @@ export default function WeeklyChallengeBrowser({ user }: ChallengeBrowserProps) 
                       color: '#0369a1',
                       fontWeight: 'bold'
                     }}>
-                      🏆 {entry.challengeTitle}
+                      {getChallengeEmoji(selectedChallenge)} {entry.challengeTitle}
                     </p>
                   </div>
 

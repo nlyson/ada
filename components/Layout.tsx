@@ -9,6 +9,8 @@ type LayoutProps = {
   signOut?: () => void;
   user?: { username: string };
   userRole?: string;
+  onDeleteAccount?: () => void;
+  isDeleting?: boolean;
 };
 
 interface MenuItem {
@@ -23,7 +25,7 @@ interface MenuSection {
   items: MenuItem[];
 }
 
-export default function Layout({ children, signOut, user, userRole }: LayoutProps) {
+export default function Layout({ children, signOut, user, userRole, onDeleteAccount, isDeleting }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { unreadCount } = useUnread();
 
@@ -74,7 +76,6 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
     {
       title: "Account",
       items: [
-        { href: "/settings", label: "Settings" },
         { href: "/feedback", label: "Report Issue" },
         { href: "/about_me", label: "About" },
       ]
@@ -259,9 +260,47 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
               ))}
             </nav>
 
-            {/* Sign Out */}
-            {signOut && (
-              <div style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.2)" }}>
+            {/* Account Actions */}
+            <div style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.2)" }}>
+              {/* Delete Account Button */}
+              {onDeleteAccount && (
+                <button
+                  onClick={() => {
+                    handleMenuClick();
+                    onDeleteAccount();
+                  }}
+                  disabled={isDeleting}
+                  style={{
+                    width: "100%",
+                    color: "white",
+                    fontSize: "1.125rem",
+                    fontWeight: "500",
+                    padding: "1rem",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(220, 53, 69, 0.2)",
+                    border: "1px solid rgba(220, 53, 69, 0.4)",
+                    cursor: isDeleting ? "not-allowed" : "pointer",
+                    transition: "all 0.2s ease",
+                    marginBottom: "1rem",
+                    opacity: isDeleting ? 0.6 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isDeleting) {
+                      e.currentTarget.style.backgroundColor = "rgba(220, 53, 69, 0.3)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isDeleting) {
+                      e.currentTarget.style.backgroundColor = "rgba(220, 53, 69, 0.2)";
+                    }
+                  }}
+                >
+                  {isDeleting ? "🗑️ Deleting..." : "🗑️ Delete Account"}
+                </button>
+              )}
+
+              {/* Sign Out */}
+              {signOut && (
                 <button
                   onClick={() => {
                     handleMenuClick();
@@ -284,8 +323,8 @@ export default function Layout({ children, signOut, user, userRole }: LayoutProp
                 >
                   Sign Out
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
