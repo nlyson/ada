@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import UserSearch from "@/components/UserSearch";
+import { useRouter } from "next/router";
 import { useUnread } from "@/context/UnreadContext";
 import { Amplify } from 'aws-amplify';
 
@@ -11,79 +11,81 @@ type LayoutProps = {
   userRole?: string;
   onDeleteAccount?: () => void;
   isDeleting?: boolean;
+  showBackButton?: boolean;
+  pageTitle?: string;
 };
 
-interface MenuItem {
+interface TabItem {
   href: string;
   label: string;
+  icon: string;
   badge?: number;
   condition?: boolean;
 }
 
-interface MenuSection {
-  title: string;
-  items: MenuItem[];
-}
-
-export default function Layout({ children, signOut, user, userRole, onDeleteAccount, isDeleting }: LayoutProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export default function Layout({ 
+  children, 
+  signOut, 
+  user, 
+  userRole, 
+  onDeleteAccount, 
+  isDeleting,
+  showBackButton = false,
+  pageTitle
+}: LayoutProps) {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const { unreadCount } = useUnread();
-
-  const handleMenuClick = () => setMenuOpen(false);
+  const router = useRouter();
 
   useEffect(() => {
     console.log("👀 Layout loaded. user:", user?.username, "role:", userRole);
     console.log('🔧 DEPLOYED Amplify Config:', Amplify.getConfig());
     console.log('🔧 DEPLOYED Auth Config:', Amplify.getConfig().Auth);
-  }, [userRole]);
-
-  const menuSections: MenuSection[] = [
-    {
-      title: "Navigate",
-      items: [
-        { href: "/", label: "Home" },
-        { href: `/users/${user?.username || ''}`, label: "My Profile", badge: unreadCount > 0 ? unreadCount : undefined, condition: !!user },
-        { href: "/admin", label: "Admin Panel", condition: userRole === "admin" },
-      ]
-    },
-    {
-      title: "Create",
-      items: [
-        { href: "/featured_photos", label: "Featured Photos" },
-        { href: "/challenge", label: "Weekly Challenge" },
-        { href: "/scavenger_hunt", label: "Scavenger Hunt" },
-        { href: "/photo_feedback", label: "Get Feedback" },
-      ]
-    },
-    {
-      title: "Learn",
-      items: [
-        { href: "/daily_tip", label: "Daily Tips" },
-        { href: "/learninghub", label: "Learning Hub" },
-        { href: "/podcasts", label: "Podcast" },
-      ]
-    },
-    {
-      title: "Explore",
-      items: [
-        { href: "/challenges", label: "Challenge Archive" },
-        { href: "/scavenger_browser", label: "Scavenger Gallery ✨ NEW" },
-        { href: "/challenge_browser", label: "Challenge Gallery ✨ NEW" },
-        { href: "/scoreboard", label: "High Scores" },
-        { href: "/browse_profiles", label: "Browse Profiles" },
-      ]
-    },
-    {
-      title: "Account",
-      items: [
-        { href: "/feedback", label: "Report Issue" },
-        { href: "/about_me", label: "About" },
-      ]
+    
+    // Set active tab based on current route
+    const path = router.pathname;
+    if (path.includes('/profile') || path.includes('/users/')) {
+      setActiveTab('profile');
+    } else if (path.includes('/create') || path.includes('/challenge') || path.includes('/scavenger_hunt') || path.includes('/photo_feedback')) {
+      setActiveTab('create');
+    } else if (path.includes('/explore') || path.includes('/browse') || path.includes('/scoreboard')) {
+      setActiveTab('explore');
+    } else if (path.includes('/learn') || path.includes('/daily_tip') || path.includes('/learninghub') || path.includes('/podcasts')) {
+      setActiveTab('learn');
+    } else if (path.includes('/settings') || path.includes('/feedback') || path.includes('/about')) {
+      setActiveTab('settings');
+    } else {
+      setActiveTab('dashboard');
     }
+  }, [router.pathname, userRole]);
+
+  const tabs: TabItem[] = [
+    { href: "/dashboard", label: "Dashboard", icon: "🏠", condition: true },
+    { href: `/users/${user?.username || ''}`, label: "Profile", icon: "👤", badge: unreadCount > 0 ? unreadCount : undefined, condition: !!user },
+    { href: "/create", label: "Create", icon: "✨", condition: true },
+    { href: "/explore", label: "Explore", icon: "🔍", condition: true },
+    { href: "/learn", label: "Learn", icon: "📚", condition: true },
+    { href: "/settings", label: "Settings", icon: "⚙️", condition: true },
   ];
 
+  const handleBackClick = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/dashboard');
+    }
+  };
+
+  // Check if we're on the dashboard page
+  const isDashboard = router.pathname === '/dashboard';
+
   return (
-    <div style={{ minHeight: "100vh", color: "#6b7280", backgroundColor: "#efede4" }}>
+    <div style={{ 
+      minHeight: "100vh", 
+      color: "#6b7280", 
+      backgroundColor: "#efede4",
+      paddingBottom: "80px" // Space for bottom tabs
+    }}>
       {/* Header */}
       <header style={{
         padding: "1rem",
@@ -92,251 +94,117 @@ export default function Layout({ children, signOut, user, userRole, onDeleteAcco
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        position: "sticky",
+        top: 0,
+        zIndex: 100
       }}>
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          style={{
-            fontSize: "1.5rem",
-            background: "none",
-            border: "none",
-            color: "white",
-            cursor: "pointer",
-            padding: "0.5rem",
-            borderRadius: "4px",
-            transition: "background-color 0.2s"
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-        >
-          ☰
-        </button>
-        <h1 style={{ fontSize: "1.25rem", fontWeight: "600", margin: 0 }}>Photo Mentor</h1>
-        <div style={{ width: "2.5rem" }}></div> {/* Spacer for balance */}
+        {showBackButton ? (
+          <button
+            onClick={handleBackClick}
+            style={{
+              fontSize: "1.5rem",
+              background: "none",
+              border: "none",
+              color: "white",
+              cursor: "pointer",
+              padding: "0.5rem",
+              borderRadius: "4px",
+              transition: "background-color 0.2s"
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+          >
+            ←
+          </button>
+        ) : (
+          <div style={{ width: "2.5rem" }}></div>
+        )}
+        
+        <h1 style={{ fontSize: "1.25rem", fontWeight: "600", margin: 0 }}>
+          {pageTitle || "Photo Mentor"}
+        </h1>
+        
+        {userRole === "admin" && (
+          <Link href="/admin" style={{ color: "white", textDecoration: "none", fontSize: "1.5rem" }}>
+            👑
+          </Link>
+        )}
+        {userRole !== "admin" && <div style={{ width: "2.5rem" }}></div>}
       </header>
 
-      {/* Full-Screen Overlay Menu */}
-      {menuOpen && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          backgroundColor: "#efede4",
-          zIndex: 1000,
-          display: "flex",
-          flexDirection: "column",
-          animation: "fadeIn 0.2s ease-out",
-          overflowY: "auto"
-        }}>
-          {/* Header */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "1.5rem 2rem",
-            borderBottom: "1px solid rgba(255,255,255,0.2)"
-          }}>
-            <h1 style={{
-              fontSize: "1.5rem",
-              fontWeight: "700",
-              color: "#6b7280",
-              margin: 0,
-              letterSpacing: "-0.025em"
-            }}>
-              Photo Mentor
-            </h1>
-            <button
-              onClick={() => setMenuOpen(false)}
+      {/* Main Content */}
+      <main style={{ padding: "1rem", minHeight: "calc(100vh - 160px)" }}>
+        {children}
+      </main>
+
+      {/* Bottom Tab Navigation */}
+      <nav style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: "white",
+        borderTop: "1px solid #e5e7eb",
+        display: "flex",
+        justifyContent: "space-around",
+        padding: "0.5rem 0",
+        zIndex: 100,
+        boxShadow: "0 -2px 8px rgba(0,0,0,0.1)"
+      }}>
+        {tabs.map((tab, index) => {
+          if (tab.condition === false) return null;
+          
+          const isActive = activeTab === tab.label.toLowerCase() || 
+                          (tab.href === "/dashboard" && isDashboard);
+          
+          return (
+            <Link
+              key={index}
+              href={tab.href}
               style={{
-                fontSize: "1.5rem",
-                background: "none",
-                border: "none",
-                color: "white",
-                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.25rem",
                 padding: "0.5rem",
-                borderRadius: "4px",
-                transition: "background-color 0.2s"
+                textDecoration: "none",
+                color: isActive ? "#44403c" : "#6b7280",
+                fontSize: "0.75rem",
+                fontWeight: isActive ? "600" : "400",
+                transition: "color 0.2s ease",
+                position: "relative",
+                minWidth: "60px"
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
             >
-              ✕
-            </button>
-          </div>
-
-          {/* Menu Content */}
-          <div style={{
-            flex: 1,
-            padding: "2rem",
-            display: "flex",
-            flexDirection: "column",
-            maxWidth: "400px",
-            margin: "0 auto",
-            width: "100%"
-          }}>
-            {/* User Search */}
-            <div style={{ marginBottom: "2rem" }}>
-              <h3 style={{
-                marginBottom: "1rem",
-                fontSize: "1rem",
-                fontWeight: "500",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em"
+              <span style={{ 
+                fontSize: "1.25rem",
+                filter: isActive ? "none" : "grayscale(0.3)"
               }}>
-                Search Users
-              </h3>
-              <UserSearch onSearch={handleMenuClick} />
-            </div>
-
-            {/* Menu Sections */}
-            <nav style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "2rem",
-              flex: 1
-            }}>
-              {menuSections.map((section, sectionIndex) => (
-                <div key={sectionIndex}>
-                  {/* Section Header */}
-                  <h4 style={{
-                    fontSize: "0.875rem",
-                    fontWeight: "600",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                    marginBottom: "1rem",
-                    paddingLeft: "1rem"
-                  }}>
-                    {section.title}
-                  </h4>
-
-                  {/* Section Items */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                    {section.items.map((item, itemIndex) => {
-                      if (item.condition === false) return null;
-
-                      return (
-                        <Link
-                          key={itemIndex}
-                          href={item.href}
-                          onClick={handleMenuClick}
-                          style={{
-                            color: "#6b7280",
-                            textDecoration: "none",
-                            fontSize: "1.125rem",
-                            fontWeight: "400",
-                            padding: "0.75rem 1rem",
-                            borderRadius: "8px",
-                            transition: "all 0.2s ease",
-                            backgroundColor: "transparent",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between"
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                        >
-                          <span>{item.label}</span>
-                          {item.badge && (
-                            <span style={{
-                              backgroundColor: "#ef4444",
-                              color: "white",
-                              borderRadius: "50%",
-                              padding: "0.25rem 0.5rem",
-                              fontSize: "0.75rem",
-                              fontWeight: "600",
-                              minWidth: "1.5rem",
-                              textAlign: "center"
-                            }}>
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </nav>
-
-            {/* Account Actions */}
-            <div style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.2)" }}>
-              {/* Delete Account Button */}
-              {onDeleteAccount && (
-                <button
-                  onClick={() => {
-                    handleMenuClick();
-                    onDeleteAccount();
-                  }}
-                  disabled={isDeleting}
-                  style={{
-                    width: "100%",
-                    color: "white",
-                    fontSize: "1.125rem",
-                    fontWeight: "500",
-                    padding: "1rem",
-                    borderRadius: "8px",
-                    backgroundColor: "rgba(220, 53, 69, 0.2)",
-                    border: "1px solid rgba(220, 53, 69, 0.4)",
-                    cursor: isDeleting ? "not-allowed" : "pointer",
-                    transition: "all 0.2s ease",
-                    marginBottom: "1rem",
-                    opacity: isDeleting ? 0.6 : 1
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isDeleting) {
-                      e.currentTarget.style.backgroundColor = "rgba(220, 53, 69, 0.3)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isDeleting) {
-                      e.currentTarget.style.backgroundColor = "rgba(220, 53, 69, 0.2)";
-                    }
-                  }}
-                >
-                  {isDeleting ? "🗑️ Deleting..." : "🗑️ Delete Account"}
-                </button>
+                {tab.icon}
+              </span>
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span style={{
+                  position: "absolute",
+                  top: "0.25rem",
+                  right: "0.25rem",
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  borderRadius: "50%",
+                  padding: "0.125rem 0.375rem",
+                  fontSize: "0.625rem",
+                  fontWeight: "600",
+                  minWidth: "1rem",
+                  textAlign: "center"
+                }}>
+                  {tab.badge}
+                </span>
               )}
-
-              {/* Sign Out */}
-              {signOut && (
-                <button
-                  onClick={() => {
-                    handleMenuClick();
-                    signOut();
-                  }}
-                  style={{
-                    width: "100%",
-                    color: "white",
-                    fontSize: "1.125rem",
-                    fontWeight: "500",
-                    padding: "1rem",
-                    borderRadius: "8px",
-                    backgroundColor: "rgba(239, 68, 68, 0.2)",
-                    border: "1px solid rgba(239, 68, 68, 0.4)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease"
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.3)"}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.2)"}
-                >
-                  Sign Out
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <main style={{ padding: "1rem" }}>{children}</main>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
